@@ -56,7 +56,7 @@ if __name__ == '__main__':
     parser.add_argument(
         'problem',
         help='MILP instance type to process.',
-        choices=['setcover', 'cauctions', 'ufacilities', 'indset', 'mknapsack'],
+        choices=['setcover', 'cauctions', 'ufacilities', 'indset', 'mknapsack', 'mimpc'],
     )
     parser.add_argument(
         '-j', '--njobs',
@@ -86,6 +86,9 @@ if __name__ == '__main__':
         instances = glob.glob(instance_dir + '/*.lp')
     elif args.problem == 'mknapsack':
         instance_dir = 'data/instances/mknapsack/train_100_6'
+        instances = glob.glob(instance_dir + '/*.lp')
+    elif args.problem == "mimpc":
+        instance_dir = 'data/instances/mimpc/train'
         instances = glob.glob(instance_dir + '/*.lp')
     else:
         raise NotImplementedError
