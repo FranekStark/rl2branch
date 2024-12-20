@@ -33,7 +33,7 @@ if __name__ == '__main__':
     parser.add_argument(
         'problem',
         help='MILP instance type to process.',
-        choices=['setcover', 'cauctions', 'ufacilities', 'indset', 'mknapsack'],
+        choices=['setcover', 'cauctions', 'ufacilities', 'indset', 'mknapsack', 'mimpc'],
     )
     parser.add_argument(
         'mode',
@@ -138,6 +138,11 @@ if __name__ == '__main__':
         maximization = True
         valid_path = "data/instances/mknapsack/valid_100_6"
         train_path = "data/instances/mknapsack/train_100_6"
+
+    elif args.problem == "mimpc":
+        maximization = False
+        valid_path = "data/instances/mimpc/valid"
+        train_path = "data/instances/mimpc/train"
 
     # recover training / validation instances
     valid_instances = [f'{valid_path}/instance_{j+1}.lp' for j in range(config["num_valid_instances"])]
