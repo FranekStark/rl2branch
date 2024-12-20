@@ -77,7 +77,7 @@ if __name__ == "__main__":
     parser.add_argument(
         'problem',
         help='MILP instance type to process.',
-        choices=['setcover', 'cauctions', 'ufacilities', 'indset', 'mknapsack'],
+        choices=['setcover', 'cauctions', 'ufacilities', 'indset', 'mknapsack', 'mimpc'],
     )
     parser.add_argument(
         '-s', '--seed',
@@ -114,6 +114,7 @@ if __name__ == "__main__":
         'ufacilities': 'ufacilities/35_35_5',
         'indset': 'indset/500_4',
         'mknapsack': 'mknapsack/100_6',
+        'mimpc' : 'mimpc/'
     }
     problem_folder = problem_folders[args.problem]
     running_dir = f"actor/{args.problem}/{args.seed}"

@@ -258,7 +258,7 @@ if __name__ == '__main__':
     parser.add_argument(
         'problem',
         help='MILP instance type to process.',
-        choices=['setcover', 'cauctions', 'ufacilities', 'indset', 'mknapsack'],
+        choices=['setcover', 'cauctions', 'ufacilities', 'indset', 'mknapsack', 'mimpc'],
     )
     parser.add_argument(
         '-s', '--seed',
@@ -306,6 +306,12 @@ if __name__ == '__main__':
         instances_train = glob.glob('data/instances/mknapsack/train_100_6/*.lp')
         instances_valid = glob.glob('data/instances/mknapsack/valid_100_6/*.lp')
         out_dir = 'data/samples/mknapsack/100_6'
+        time_limit = 60
+
+    elif args.problem == 'mimpc':
+        instances_train = glob.glob('data/instances/mimpc/train/*.lp')
+        instances_valid = glob.glob('data/instances/mimpc/valid/*.lp')
+        out_dir = 'data/samples/mimpc/'
         time_limit = 60
 
     else:
