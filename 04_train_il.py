@@ -78,6 +78,7 @@ if __name__ == "__main__":
         'problem',
         help='MILP instance type to process.',
         choices=['setcover', 'cauctions', 'ufacilities', 'indset', 'mknapsack', 'mimpc'],
+        default='mimpc'
     )
     parser.add_argument(
         '-s', '--seed',

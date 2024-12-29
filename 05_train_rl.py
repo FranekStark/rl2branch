@@ -34,11 +34,13 @@ if __name__ == '__main__':
         'problem',
         help='MILP instance type to process.',
         choices=['setcover', 'cauctions', 'ufacilities', 'indset', 'mknapsack', 'mimpc'],
+        default='mimpc',
     )
     parser.add_argument(
         'mode',
         help='Training mode.',
         choices=['mdp', 'tmdp+DFS', 'tmdp+ObjLim'],
+        default='mdp'
     )
     parser.add_argument(
         '--wandb',

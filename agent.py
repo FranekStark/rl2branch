@@ -188,8 +188,17 @@ class Agent(threading.Thread):
                                                                              training=training)
             policy_access.wait()
             iter_count = 0
+            nan_found = False
             while not done:
                 focus_node_obs, node_bipartite_obs = observation
+                nan_found = np.isnan(node_bipartite_obs.column_features).any()
+                if nan_found:
+                    nan_found = True
+                    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                    print(f"found nan in {instance['path']} - trying to skip")
+                    break
+
+                    
                 state = utilities.extract_state(node_bipartite_obs, action_set, focus_node_obs.number)
 
                 # send out policy queries
@@ -209,6 +218,11 @@ class Agent(threading.Thread):
                 observation, action_set, cum_nnodes, done, info = self.env.step(action)
                 iter_count += 1
                 if (iter_count>50000) and training: done=True # avoid too large trees during training for stability
+
+            if nan_found:
+                job_sponsor.task_done()
+                self.jobs_queue.task_done()
+                continue
 
             if (iter_count>50000) and training: # avoid too large trees during training for stability
                 job_sponsor.task_done()

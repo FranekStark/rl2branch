@@ -192,12 +192,21 @@ class GNNPolicy(BaseModel):
     def forward(self, constraint_features, edge_indices, edge_features, variable_features):
         reversed_edge_indices = torch.stack([edge_indices[1], edge_indices[0]], dim=0)
         
-        constraint_features = self.cons_embedding(constraint_features)
-        edge_features = self.edge_embedding(edge_features)
-        variable_features = self.var_embedding(variable_features)
+        constraint_features_1 = self.cons_embedding(constraint_features)
+        edge_features_1 = self.edge_embedding(edge_features)
+        variable_features_1 = self.var_embedding(variable_features)
 
-        constraint_features = self.conv_v_to_c(variable_features, reversed_edge_indices, edge_features, constraint_features)
-        variable_features = self.conv_c_to_v(constraint_features, edge_indices, edge_features, variable_features)
+        constraint_features_2 = self.conv_v_to_c(variable_features_1, reversed_edge_indices, edge_features_1, constraint_features_1)
+        variable_features_2 = self.conv_c_to_v(constraint_features_2, edge_indices, edge_features_1, variable_features_1)
 
-        output = self.output_module(variable_features).squeeze(-1)
+        output = self.output_module(variable_features_2).squeeze(-1)
+        if(torch.isnan(output).any()):
+            print("NAAAAAAANNNNNNNNNNNNNNNN!!!!!!!!!!!!!!!!!!!!!!!!")
+            print("With")
+            print(constraint_features)
+            print(edge_indices)
+            print(edge_features)
+            print(variable_features)
+            breakpoint()
+            raise RuntimeError("nan occured")
         return output
