@@ -3,13 +3,13 @@
 
     "entropy_bonus": 1e-5,
 
-    "num_epochs": 20000,
-    "time_limit": 4000,
-    "num_episodes_per_epoch": 10,
-    "sample_rate": 0.05,
+    "num_epochs": 200000,
+    "time_limit": 40000,
+    "num_episodes_per_epoch": 20,
+    "sample_rate": 0.5,
 
     "batch_size": 32,
-    "num_agents": 12,
+    "num_agents": 20,
     "episodes_preemption": 1,
 
     "num_valid_instances": 20,
