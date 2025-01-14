@@ -24,7 +24,7 @@ if __name__ == "__main__":
     parser.add_argument(
         'problem',
         help='MILP instance type to process.',
-        choices=['setcover', 'cauctions', 'ufacilities', 'indset', 'mknapsack'],
+        choices=['setcover', 'cauctions', 'ufacilities', 'indset', 'mknapsack', 'mimpc'],
     )
     parser.add_argument(
         '-g', '--gpu',
@@ -61,6 +61,8 @@ if __name__ == "__main__":
         instances += [{'type': 'test', 'path': f"data/instances/mknapsack/test_100_6/instance_{i+1}.lp"} for i in range(40)]
         instances += [{'type': 'transfer', 'path': f"data/instances/mknapsack/transfer_100_12/instance_{i+1}.lp"} for i in range(40)]
 
+    elif args.problem == 'mimpc':
+        instances += [{'type': 'test', 'path': f"data/instances/mimpc/test/instance_{i+1}.lp"} for i in range(2000)]
     else:
         raise NotImplementedError
 
