@@ -34,13 +34,15 @@ if __name__ == '__main__':
         'problem',
         help='MILP instance type to process.',
         choices=['setcover', 'cauctions', 'ufacilities', 'indset', 'mknapsack', 'mimpc'],
+        nargs='?',
         default='mimpc',
     )
     parser.add_argument(
         'mode',
         help='Training mode.',
         choices=['mdp', 'tmdp+DFS', 'tmdp+ObjLim'],
-        default='mdp'
+        nargs='?',
+        default='mdp',
     )
     parser.add_argument(
         '--wandb',
@@ -153,6 +155,10 @@ if __name__ == '__main__':
     # collect the pre-computed optimal solutions for the training instances
     with open(f"{train_path}/instance_solutions.json", "r") as f:
         train_sols = json.load(f)
+    
+    # collect the tree sizes
+    with open(f"{train_path}/instance_nnodes.json", "r") as f:
+        train_nnodes = json.load(f)
 
     valid_batch = [{'path': instance, 'seed': seed}
         for instance in valid_instances
@@ -163,8 +169,36 @@ if __name__ == '__main__':
         while True:
             yield [{'path': instance, 'sol': train_sols[instance] + eps, 'seed': rng.randint(0, 2**32)}
                     for instance in rng.choice(train_instances, size=config['num_episodes_per_epoch'], replace=True)]
+            
+    def train_batch_generator_new():
+        eps = -0.1 if maximization else 0.1
 
-    train_batches = train_batch_generator()
+        while True:
+            batch = []
+            total_nodes = 0
+
+            while total_nodes < config['num_nodes_per_epoch'] or len(batch) < config['num_episodes_per_epoch']:
+                # Randomly sample an instance
+                instance = rng.choice(train_instances)
+
+                # Exclude instances with only 1 node
+                if train_nnodes[instance] <= 1:
+                    print(f"instance {instance} is exclued as it has only {train_nnodes[instance]} nodes")
+                    continue
+
+                # Add the instance to the batch
+                batch.append({
+                    'path': instance,
+                    'sol': train_sols[instance] + eps,
+                    'seed': rng.randint(0, 2**32)
+                })
+
+                # Accumulate the total number of nodes
+                total_nodes += train_nnodes[instance]
+            print(f"vield batch with {len(batch)} instances and total {total_nodes} nodes")
+            yield batch
+
+    train_batches = train_batch_generator_new()
 
     logger.info(f"Training on {len(train_instances)} training instances and {len(valid_instances)} validation instances")
 
@@ -177,10 +211,10 @@ if __name__ == '__main__':
 
     # Already start jobs
     if is_validation_epoch(0):
-        _, v_stats_next, v_queue_next, v_access_next = agent_pool.start_job(valid_batch, sample_rate=0.0, greedy=True, block_policy=True)
+        _, v_stats_next, v_queue_next, v_access_next = agent_pool.start_job(valid_batch, sample_rate=0.0, greedy=True, block_policy=True, heuristics=config['heuristics_during_validation'])
     if is_training_epoch(0):
         train_batch = next(train_batches)
-        t_samples_next, t_stats_next, t_queue_next, t_access_next = agent_pool.start_job(train_batch, sample_rate=config['sample_rate'], greedy=False, block_policy=True)
+        t_samples_next, t_stats_next, t_queue_next, t_access_next = agent_pool.start_job(train_batch, sample_rate=config['sample_rate'], greedy=False, block_policy=True,heuristics=config['heuristics_during_training'])
 
     # training loop
     start_time = datetime.now()
@@ -208,10 +242,10 @@ if __name__ == '__main__':
         # Start next epoch's jobs
         if epoch + 1 <= config["num_epochs"]:
             if is_validation_epoch(epoch + 1):
-                _, v_stats_next, v_queue_next, v_access_next = agent_pool.start_job(valid_batch, sample_rate=0.0, greedy=True, block_policy=True)
+                _, v_stats_next, v_queue_next, v_access_next = agent_pool.start_job(valid_batch, sample_rate=0.0, greedy=True, block_policy=True, heuristics=config['heuristics_during_validation'])
             if is_training_epoch(epoch + 1):
                 train_batch = next(train_batches)
-                t_samples_next, t_stats_next, t_queue_next, t_access_next = agent_pool.start_job(train_batch, sample_rate=config['sample_rate'], greedy=False, block_policy=True)
+                t_samples_next, t_stats_next, t_queue_next, t_access_next = agent_pool.start_job(train_batch, sample_rate=config['sample_rate'], greedy=False, block_policy=True,heuristics=config['heuristics_during_training'])
 
         # Validation
         if is_validation_epoch(epoch):
@@ -221,6 +255,7 @@ if __name__ == '__main__':
             v_nnodess = [s['info']['nnodes'] for s in v_stats]
             v_lpiterss = [s['info']['lpiters'] for s in v_stats]
             v_times = [s['info']['time'] for s in v_stats]
+            v_subopt_gap = [s['info']['subopt_gap'] for s in v_stats]
 
             wandb_data.update({
                 'valid_nnodes_g': gmean(np.asarray(v_nnodess) + 1) - 1,
@@ -229,6 +264,9 @@ if __name__ == '__main__':
                 'valid_nnodes_min': np.amin(v_nnodess),
                 'valid_time': np.mean(v_times),
                 'valid_lpiters': np.mean(v_lpiterss),
+                'valid_subopt_gap' : np.mean(v_subopt_gap),
+                'valid_subopt_max' : np.amax(v_subopt_gap),
+                'valid_subopt_min' : np.amin(v_subopt_gap),
             })
             if epoch == 0:
                 v_nnodes_0 = wandb_data['valid_nnodes'] if wandb_data['valid_nnodes'] != 0 else 1
@@ -242,6 +280,8 @@ if __name__ == '__main__':
                 best_tree_size = wandb_data['valid_nnodes_g']
                 logger.info('Best parameters so far (1-shifted geometric mean), saving model.')
                 brain.save()
+            # saving every valid epoch:
+            brain.save(epoch)
 
         # Training
         if is_training_epoch(epoch):
@@ -254,6 +294,7 @@ if __name__ == '__main__':
             t_nnodess = [s['info']['nnodes'] for s in t_stats]
             t_lpiterss = [s['info']['lpiters'] for s in t_stats]
             t_times = [s['info']['time'] for s in t_stats]
+            t_subopt_gap = [s['info']['subopt_gap'] for s in t_stats]
 
             wandb_data.update({
                 'train_nnodes_g': gmean(t_nnodess),
@@ -264,6 +305,9 @@ if __name__ == '__main__':
                 'train_loss': t_losses.get('loss', None),
                 'train_reinforce_loss': t_losses.get('reinforce_loss', None),
                 'train_entropy': t_losses.get('entropy', None),
+                'train_subopt_gap' : np.mean(t_subopt_gap),
+                'train_subopt_max' : np.amax(t_subopt_gap),
+                'train_subopt_min' : np.amin(t_subopt_gap),
             })
 
         # Send the stats to wandb
