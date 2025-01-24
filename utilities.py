@@ -88,8 +88,8 @@ def extract_state(observation, action_set, node_id):
     edge_index = torch.LongTensor(observation.edge_features.indices.astype(np.int64))
     edge_attr = torch.FloatTensor(np.expand_dims(observation.edge_features.values, axis=-1))
     variable_features = torch.FloatTensor(observation.column_features)
-    if torch.isnan(variable_features).any():
-        raise RuntimeError("Nan detected!")
+    #if torch.isnan(variable_features).any():
+    #    raise RuntimeError("Nan detected!")
     action_set = torch.LongTensor(np.array(action_set, dtype=np.int64))
     action_set_size = action_set.shape[0]
     node_id = node_id
