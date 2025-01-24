@@ -281,7 +281,7 @@ if __name__ == '__main__':
                 logger.info('Best parameters so far (1-shifted geometric mean), saving model.')
                 brain.save()
             # saving every valid epoch:
-            brain.save(epoch)
+            brain.save_epoch(epoch)
 
         # Training
         if is_training_epoch(epoch):

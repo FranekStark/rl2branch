@@ -101,6 +101,6 @@ class Brain:
         torch.save(self.actor.state_dict(),
                    f"actor/{self.problem}/0/{self.timestamp}--best_params--{self.mode}.pkl")
         
-    def save(self, epoch_id):
+    def save_epoch(self, epoch_id):
         torch.save(self.actor.state_dict(),
-                   f"actor/{self.problem}/0/{self.timestamp}--best_params--{self.mode}--epoch_{epoch_id}.pkl")
+                   f"actor/{self.problem}/0/{self.timestamp}--epoch--{self.mode}--{epoch_id}.pkl")
