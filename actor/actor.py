@@ -194,7 +194,7 @@ class GNNPolicy(BaseModel):
         
         constraint_features_1 = self.cons_embedding(constraint_features)
         edge_features_1 = self.edge_embedding(edge_features)
-        variable_features_1 = self.var_embedding(variable_features)
+        variable_features_1 = self.var_embedding(torch.nan_to_num(variable_features, nan=0.0))
 
         constraint_features_2 = self.conv_v_to_c(variable_features_1, reversed_edge_indices, edge_features_1, constraint_features_1)
         variable_features_2 = self.conv_c_to_v(constraint_features_2, edge_indices, edge_features_1, variable_features_1)
