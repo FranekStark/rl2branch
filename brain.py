@@ -100,3 +100,7 @@ class Brain:
         # Save in the same directory as the pretrained params
         torch.save(self.actor.state_dict(),
                    f"actor/{self.problem}/0/{self.timestamp}--best_params--{self.mode}.pkl")
+        
+    def save(self, epoch_id):
+        torch.save(self.actor.state_dict(),
+                   f"actor/{self.problem}/0/{self.timestamp}--best_params--{self.mode}--epoch_{epoch_id}.pkl")
