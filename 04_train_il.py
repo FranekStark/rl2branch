@@ -78,6 +78,7 @@ if __name__ == "__main__":
         'problem',
         help='MILP instance type to process.',
         choices=['setcover', 'cauctions', 'ufacilities', 'indset', 'mknapsack', 'mimpc'],
+        nargs='?',
         default='mimpc'
     )
     parser.add_argument(
@@ -170,38 +171,41 @@ if __name__ == "__main__":
     pretrain_loader = torch_geometric.data.DataLoader(pretrain_data, pretrain_batch_size, shuffle=False)
     valid_data = GraphDataset(valid_files)
     valid_loader = torch_geometric.data.DataLoader(valid_data, valid_batch_size, shuffle=False)
-
+    
     for epoch in range(max_epochs + 1):
         log(f"EPOCH {epoch}...", logfile)
-        if epoch == 0:
-            n = pretrain(policy, pretrain_loader)
-            log(f"PRETRAINED {n} LAYERS", logfile)
-        else:
-            epoch_train_files = rng.choice(train_files, int(np.floor(10000/batch_size))*batch_size, replace=True)
-            train_data = GraphDataset(epoch_train_files)
-            train_loader = torch_geometric.data.DataLoader(train_data, batch_size, shuffle=True)
-            train_loss, train_kacc, entropy = process(policy, train_loader, top_k, optimizer)
-            log(f"TRAIN LOSS: {train_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, train_kacc)]), logfile)
+        try:
+            if epoch == 0:
+                n = pretrain(policy, pretrain_loader)
+                log(f"PRETRAINED {n} LAYERS", logfile)
+            else:
+                epoch_train_files = rng.choice(train_files, int(np.floor(10000/batch_size))*batch_size, replace=True)
+                train_data = GraphDataset(epoch_train_files)
+                train_loader = torch_geometric.data.DataLoader(train_data, batch_size, shuffle=True)
+                train_loss, train_kacc, entropy = process(policy, train_loader, top_k, optimizer)
+                log(f"TRAIN LOSS: {train_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, train_kacc)]), logfile)
+                if args.wandb:
+                    wandb.log({'train_loss':train_loss, 'train_entropy':entropy}, step = epoch)
+                    wandb.log({f'train_acc@{k}':acc for k, acc in zip(top_k, train_kacc)}, step = epoch)
+
+            # TEST
+            valid_loss, valid_kacc, entropy = process(policy, valid_loader, top_k, None)
+            log(f"VALID LOSS: {valid_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, valid_kacc)]), logfile)
             if args.wandb:
-                wandb.log({'train_loss':train_loss, 'train_entropy':entropy}, step = epoch)
-                wandb.log({f'train_acc@{k}':acc for k, acc in zip(top_k, train_kacc)}, step = epoch)
+                wandb.log({'valid_loss':valid_loss, 'valid_entropy':entropy}, step = epoch)
+                wandb.log({f'valid_acc@{k}':acc for k, acc in zip(top_k, valid_kacc)}, step = epoch)
 
-        # TEST
-        valid_loss, valid_kacc, entropy = process(policy, valid_loader, top_k, None)
-        log(f"VALID LOSS: {valid_loss:0.3f} " + "".join([f" acc@{k}: {acc:0.3f}" for k, acc in zip(top_k, valid_kacc)]), logfile)
-        if args.wandb:
-            wandb.log({'valid_loss':valid_loss, 'valid_entropy':entropy}, step = epoch)
-            wandb.log({f'valid_acc@{k}':acc for k, acc in zip(top_k, valid_kacc)}, step = epoch)
-
-        scheduler.step(valid_loss)
-        if scheduler.num_bad_epochs == 0:
-            torch.save(policy.state_dict(), pathlib.Path(running_dir)/'il.pkl')
-            log(f"  best model so far", logfile)
-        elif scheduler.num_bad_epochs == 10:
-            log(f"  10 epochs without improvement, decreasing learning rate", logfile)
-        elif scheduler.num_bad_epochs == 20:
-            log(f"  20 epochs without improvement, early stopping", logfile)
-            break
+            scheduler.step(valid_loss)
+            if scheduler.num_bad_epochs == 0:
+                torch.save(policy.state_dict(), pathlib.Path(running_dir)/'il.pkl')
+                log(f"  best model so far", logfile)
+            elif scheduler.num_bad_epochs == 10:
+                log(f"  10 epochs without improvement, decreasing learning rate", logfile)
+            elif scheduler.num_bad_epochs == 20:
+                log(f"  20 epochs without improvement, early stopping", logfile)
+                break
+        except Exception as e:
+            print(f"caught execption {e}, skipping this")
 
     policy.load_state_dict(torch.load(pathlib.Path(running_dir)/'il.pkl'))
     valid_loss, valid_kacc, entropy = process(policy, valid_loader, top_k, None)
