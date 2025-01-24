@@ -1,9 +1,12 @@
 import ecole
 import threading
 import queue
+
+import ecole.reward
 import utilities
 import numpy as np
 from collections import namedtuple
+from pyscipopt import Model, SCIP_PARAMSETTING
 
 
 class AgentPool():
@@ -31,7 +34,7 @@ class AgentPool():
         self.policy_queries_queue.put(None)
         self.policy_queries_queue.join()
 
-    def start_job(self, instances, sample_rate, greedy=False, block_policy=False):
+    def start_job(self, instances, sample_rate, greedy=False, block_policy=False, heuristics=True):
         """
         Starts a job.
         A job is a set of tasks. A task consists of an instance that needs to be solved and instructions
@@ -50,7 +53,7 @@ class AgentPool():
 
         for instance in instances:
             task = {'instance': instance, 'sample_rate': sample_rate, 'greedy': greedy,
-                    'samples': samples, 'stats': stats, 'policy_access': policy_access}
+                    'samples': samples, 'stats': stats, 'policy_access': policy_access, 'heuristics': heuristics}
             job_sponsor.put(task)
             self.jobs_queue.put(job_sponsor)
 
@@ -132,7 +135,8 @@ class Agent(threading.Thread):
         information_function={
             'nnodes': ecole.reward.NNodes().cumsum(),
             'lpiters': ecole.reward.LpIterations().cumsum(),
-            'time': ecole.reward.SolvingTime().cumsum()
+            'time': ecole.reward.SolvingTime().cumsum(),
+            'suboptimal_objective': ecole.reward.SubOptimality()
         }
 
         if mode == 'tmdp+ObjLim':
@@ -175,6 +179,7 @@ class Agent(threading.Thread):
             stats = task['stats']
             policy_access = task['policy_access']
             seed = instance['seed']
+            heuristics = task['heuristics']
 
             transitions = []
             self.env.seed(seed)
@@ -185,20 +190,13 @@ class Agent(threading.Thread):
             # Run episode
             observation, action_set, cum_nnodes, done, info = self.env.reset(instance = instance['path'],
                                                                              primal_bound=instance.get('sol', None),
-                                                                             training=training)
+                                                                             training=training, heuristics=heuristics)
             policy_access.wait()
             iter_count = 0
             nan_found = False
             while not done:
                 focus_node_obs, node_bipartite_obs = observation
-                nan_found = np.isnan(node_bipartite_obs.column_features).any()
-                if nan_found:
-                    nan_found = True
-                    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                    print(f"found nan in {instance['path']} - trying to skip")
-                    break
-
-                    
+                                    
                 state = utilities.extract_state(node_bipartite_obs, action_set, focus_node_obs.number)
 
                 # send out policy queries
@@ -218,6 +216,8 @@ class Agent(threading.Thread):
                 observation, action_set, cum_nnodes, done, info = self.env.step(action)
                 iter_count += 1
                 if (iter_count>50000) and training: done=True # avoid too large trees during training for stability
+
+            print(f"agent on {instance['path']} finshed after {iter_count} iters, num transitions recorded: {len(transitions)} ")
 
             if nan_found:
                 job_sponsor.task_done()
@@ -239,6 +239,14 @@ class Agent(threading.Thread):
                     assert self.mode == 'mdp'
                     for transition in transitions:
                         transition.returns = transition.cum_nnodes - cum_nnodes
+            if training:
+                optimal_sol = instance.get('sol', None)
+            elif self.env.model.is_solved:
+                optimal_sol = self.env.model.primal_bound
+            else:
+                print(f"validation {instance['path']} is not solved. subopt_gap cant be calculated!")
+                optimal_sol = ptimal_sol = self.env.model.dual_bound
+            info['subopt_gap'] = (info['suboptimal_objective'] - optimal_sol) / optimal_sol
 
             # record episode samples and stats
             samples.extend(transitions)
@@ -288,7 +296,7 @@ class DFSBranchingDynamics(ecole.dynamics.BranchingDynamics):
     """
     Custom branching environment that changes the node strategy to DFS when training.
     """
-    def reset_dynamics(self, model, primal_bound, training, *args, **kwargs):
+    def reset_dynamics(self, model, primal_bound, training, heuristics, *args, **kwargs):
         pyscipopt_model = model.as_pyscipopt()
         if training:
             # Set the dfs node selector as the least important
@@ -298,6 +306,11 @@ class DFSBranchingDynamics(ecole.dynamics.BranchingDynamics):
             # Set the dfs node selector as the most important
             pyscipopt_model.setParam(f"nodeselection/dfs/stdpriority", 0)
             pyscipopt_model.setParam(f"nodeselection/dfs/memsavepriority", 0)
+        
+        if heuristics:
+            pyscipopt_model.setHeuristics(SCIP_PARAMSETTING.DEFAULT)
+        else:
+            pyscipopt_model.setHeuristics(SCIP_PARAMSETTING.OFF)
 
         return super().reset_dynamics(model, *args, **kwargs)
 
@@ -308,10 +321,15 @@ class ObjLimBranchingDynamics(ecole.dynamics.BranchingDynamics):
     """
     Custom branching environment that allows the user to set an initial primal bound.
     """
-    def reset_dynamics(self, model, primal_bound, training, *args, **kwargs):
+    def reset_dynamics(self, model, primal_bound, training, heuristics, *args, **kwargs):
         pyscipopt_model = model.as_pyscipopt()
         if primal_bound is not None:
             pyscipopt_model.setObjlimit(primal_bound)
+        
+        if heuristics:
+            pyscipopt_model.setHeuristics(SCIP_PARAMSETTING.DEFAULT)
+        else:
+            pyscipopt_model.setHeuristics(SCIP_PARAMSETTING.OFF)
 
         return super().reset_dynamics(model, *args, **kwargs)
 
@@ -323,8 +341,15 @@ class MDPBranchingDynamics(ecole.dynamics.BranchingDynamics):
     Regular branching environment that allows extra input parameters, but does
     not use them.
     """
-    def reset_dynamics(self, model, primal_bound, training, *args, **kwargs):
+    def reset_dynamics(self, model, primal_bound, training, heuristics, *args, **kwargs):
+        pyscipopt_model = model.as_pyscipopt()
+        if heuristics:
+            pyscipopt_model.setHeuristics(SCIP_PARAMSETTING.DEFAULT)
+        else:
+            pyscipopt_model.setHeuristics(SCIP_PARAMSETTING.OFF)
+        
         return super().reset_dynamics(model, *args, **kwargs)
+    
 
 class MDPBranchingEnv(ecole.environment.Environment):
     __Dynamics__ = MDPBranchingDynamics
