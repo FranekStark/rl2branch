@@ -36,3 +36,25 @@ Optional: run steps 4 and 5 with flag `--wandb` to log the training metrics usin
 
 ## Questions / Bugs
 Please feel free to submit a Github issue if you have any questions or find any bugs. We do not guarantee any support, but will do our best if we can help.
+
+
+# Train Franeks test set:
+## Commands
+
+On the PC
+```bash
+docker build rl2branch -t rl2branch:cuda  
+docker run -it -v  ~/User/fstark/mip_rl/rl2branch/data/:/root/rl2branch/data/  --network="host" --gpus all rl2branch:cuda bash
+python3.8 05_train_rl.py $TYPE mdp -g 0 --wandb
+```
+
+
+On the cluster
+
+```bash
+ssh fstark@hpc3-login.dfki.uni-bremen.de
+docker run -it -v ~/SCRATCH/data/:/root/rl2branch/data/ ~/SCRATCH/actor/mimpc/0:/root/rl2branch/actor/mimpc/0  --network="host" --gpus all rl2branch:cuda bash
+srun --account=deepl --nodelist=hpc-dnode04 --job-name=fstark_rlbranch1 --pty --mem-per-cpu=8g --cpus-per-task=16 --gres=gpu:1 --partition=gpu_ampere shifter -v --image=fstark/rl2branch:cuda bash
+export  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/gluster/public/cudadrv/lib64
+python3.8 05_train_rl.py $TYPE mdp -g 0 --wandb
+```

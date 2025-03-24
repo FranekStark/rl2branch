@@ -155,12 +155,14 @@ if __name__ == '__main__':
     # collect the pre-computed optimal solutions for the training instances
     with open(f"{train_path}/instance_solutions.json", "r") as f:
         train_sols = json.load(f)
+    with open(f"{valid_path}/instance_solutions.json", "r") as f:
+        valid_sols = json.load(f)
     
     # collect the tree sizes
     with open(f"{train_path}/instance_nnodes.json", "r") as f:
         train_nnodes = json.load(f)
 
-    valid_batch = [{'path': instance, 'seed': seed}
+    valid_batch = [{'path': instance, 'seed': seed, 'sol': valid_sols[instance]}
         for instance in valid_instances
         for seed in range(config['num_valid_seeds'])]
 
@@ -211,10 +213,11 @@ if __name__ == '__main__':
 
     # Already start jobs
     if is_validation_epoch(0):
-        _, v_stats_next, v_queue_next, v_access_next = agent_pool.start_job(valid_batch, sample_rate=0.0, greedy=True, block_policy=True, heuristics=config['heuristics_during_validation'])
+        _, v_stats_next, v_queue_next, v_access_next = agent_pool.start_job(valid_batch, sample_rate=0.0, greedy=True, block_policy=True, heuristics_on=True, heuristics_off=True)
+
     if is_training_epoch(0):
         train_batch = next(train_batches)
-        t_samples_next, t_stats_next, t_queue_next, t_access_next = agent_pool.start_job(train_batch, sample_rate=config['sample_rate'], greedy=False, block_policy=True,heuristics=config['heuristics_during_training'])
+        t_samples_next, t_stats_next, t_queue_next, t_access_next = agent_pool.start_job(train_batch, sample_rate=config['sample_rate'], greedy=False, block_policy=True,heuristics_on=config['heuristics_during_training'], heuristics_off= not config['heuristics_during_training'])
 
     # training loop
     start_time = datetime.now()
@@ -242,46 +245,61 @@ if __name__ == '__main__':
         # Start next epoch's jobs
         if epoch + 1 <= config["num_epochs"]:
             if is_validation_epoch(epoch + 1):
-                _, v_stats_next, v_queue_next, v_access_next = agent_pool.start_job(valid_batch, sample_rate=0.0, greedy=True, block_policy=True, heuristics=config['heuristics_during_validation'])
+                _, v_stats_next, v_queue_next, v_access_next = agent_pool.start_job(valid_batch, sample_rate=0.0, greedy=True, block_policy=True, heuristics_on=True, heuristics_off=True)
             if is_training_epoch(epoch + 1):
                 train_batch = next(train_batches)
-                t_samples_next, t_stats_next, t_queue_next, t_access_next = agent_pool.start_job(train_batch, sample_rate=config['sample_rate'], greedy=False, block_policy=True,heuristics=config['heuristics_during_training'])
+                t_samples_next, t_stats_next, t_queue_next, t_access_next = agent_pool.start_job(train_batch, sample_rate=config['sample_rate'], greedy=False, block_policy=True,heuristics_on=config['heuristics_during_training'], heuristics_off= not config['heuristics_during_training'])
 
         # Validation
         if is_validation_epoch(epoch):
             v_queue.join()  # wait for all validation episodes to be processed
             logger.info('  validation jobs finished')
 
-            v_nnodess = [s['info']['nnodes'] for s in v_stats]
-            v_lpiterss = [s['info']['lpiters'] for s in v_stats]
-            v_times = [s['info']['time'] for s in v_stats]
-            v_subopt_gap = [s['info']['subopt_gap'] for s in v_stats]
+        for heur in [True, False]:
+            v_nnodess = [s['info']['nnodes'] for s in v_stats if s['heuristics'] == heur]
+            v_lpiterss = [s['info']['lpiters'] for s in v_stats if s['heuristics'] == heur]
+            v_times = [s['info']['time'] for s in v_stats if s['heuristics'] == heur]
+            v_subopt_gap = [s['info']['subopt_gap'] for s in v_stats if s['heuristics'] == heur]
+            v_primal_obj = [s['info']['primal_obj'] for s in v_stats if s['heuristics'] == heur]
+            v_gap = [s['info']['gap'] for s in v_stats if s['heuristics'] == heur]
+            v_normed_gap_integral = [s['info']['normed_gap_integral'] for s in v_stats if s['heuristics'] == heur]
+            v_normed_optimality_integral = [s['info']['normed_optimality_integral'] for s in v_stats if s['heuristics'] == heur]
+
+            heur_str = '_h' if heur else ''
 
             wandb_data.update({
-                'valid_nnodes_g': gmean(np.asarray(v_nnodess) + 1) - 1,
-                'valid_nnodes': np.mean(v_nnodess),
-                'valid_nnodes_max': np.amax(v_nnodess),
-                'valid_nnodes_min': np.amin(v_nnodess),
-                'valid_time': np.mean(v_times),
-                'valid_lpiters': np.mean(v_lpiterss),
-                'valid_subopt_gap' : np.mean(v_subopt_gap),
-                'valid_subopt_max' : np.amax(v_subopt_gap),
-                'valid_subopt_min' : np.amin(v_subopt_gap),
+                f'valid{heur_str}_nnodes_g': gmean(np.asarray(v_nnodess) + 1) - 1,
+                f'valid{heur_str}_nnodes': np.mean(v_nnodess),
+                f'valid{heur_str}_nnodes_max': np.amax(v_nnodess),
+                f'valid{heur_str}_nnodes_min': np.amin(v_nnodess),
+                f'valid{heur_str}_time': np.mean(v_times),
+                f'valid{heur_str}_lpiters': np.mean(v_lpiterss),
+                f'valid{heur_str}_subopt_gap' : np.mean(v_subopt_gap),
+                f'valid{heur_str}_subopt_max' : np.amax(v_subopt_gap),
+                f'valid{heur_str}_subopt_min' : np.amin(v_subopt_gap),
+                f'valid{heur_str}_primal_obj' : np.mean(v_primal_obj),
+                f'valid{heur_str}_primal_obj_max' : np.amax(v_primal_obj),
+                f'valid{heur_str}_primal_obj_min' : np.amin(v_primal_obj),
+                f'valid{heur_str}_gap' : np.mean(v_gap),
+                f'valid{heur_str}_gap_max' : np.amax(v_gap),
+                f'valid{heur_str}_gap_min' : np.amin(v_gap),
+                f'valid{heur_str}_normed_gap_integral' : np.mean(v_normed_gap_integral),
+                f'valid{heur_str}_normed_optimality_integral' : np.mean(v_normed_optimality_integral)
             })
             if epoch == 0:
-                v_nnodes_0 = wandb_data['valid_nnodes'] if wandb_data['valid_nnodes'] != 0 else 1
-                v_nnodes_g_0 = wandb_data['valid_nnodes_g'] if wandb_data['valid_nnodes_g']!= 0 else 1
+                v_nnodes_0 = wandb_data[f'valid{heur_str}_nnodes'] if wandb_data[f'valid{heur_str}_nnodes'] != 0 else 1
+                v_nnodes_g_0 = wandb_data[f'valid{heur_str}_nnodes_g'] if wandb_data[f'valid{heur_str}_nnodes_g']!= 0 else 1
             wandb_data.update({
-                'valid_nnodes_norm': wandb_data['valid_nnodes'] / v_nnodes_0,
-                'valid_nnodes_g_norm': wandb_data['valid_nnodes_g'] / v_nnodes_g_0,
+                f'valid{heur_str}_nnodes_norm': wandb_data[f'valid{heur_str}_nnodes'] / v_nnodes_0,
+                f'valid{heur_str}_nnodes_g_norm': wandb_data[f'valid{heur_str}_nnodes_g'] / v_nnodes_g_0,
             })
 
-            if wandb_data['valid_nnodes_g'] < best_tree_size:
-                best_tree_size = wandb_data['valid_nnodes_g']
-                logger.info('Best parameters so far (1-shifted geometric mean), saving model.')
-                brain.save()
-            # saving every valid epoch:
-            brain.save_epoch(epoch)
+        if wandb_data['valid_nnodes_g'] < best_tree_size:
+            best_tree_size = wandb_data['valid_nnodes_g']
+            logger.info('Best parameters so far (1-shifted geometric mean), saving model.')
+            brain.save()
+        # saving every valid epoch:
+        brain.save_epoch(epoch)
 
         # Training
         if is_training_epoch(epoch):
@@ -295,6 +313,11 @@ if __name__ == '__main__':
             t_lpiterss = [s['info']['lpiters'] for s in t_stats]
             t_times = [s['info']['time'] for s in t_stats]
             t_subopt_gap = [s['info']['subopt_gap'] for s in t_stats]
+            t_primal_obj = [s['info']['primal_obj'] for s in t_stats]
+            t_gap = [s['info']['gap'] for s in t_stats]
+            t_normed_gap_integral = [s['info']['normed_gap_integral'] for s in t_stats]
+            t_normed_optimality_integral = [s['info']['normed_optimality_integral'] for s in t_stats]
+
 
             wandb_data.update({
                 'train_nnodes_g': gmean(t_nnodess),
@@ -308,6 +331,17 @@ if __name__ == '__main__':
                 'train_subopt_gap' : np.mean(t_subopt_gap),
                 'train_subopt_max' : np.amax(t_subopt_gap),
                 'train_subopt_min' : np.amin(t_subopt_gap),
+                'train_subopt_gap' : np.mean(t_subopt_gap),
+                'train_subopt_max' : np.amax(t_subopt_gap),
+                'train_subopt_min' : np.amin(t_subopt_gap),
+                'train_primal_obj' : np.mean(t_primal_obj),
+                'train_primal_obj_max' : np.amax(t_primal_obj),
+                'train_primal_obj_min' : np.amin(t_primal_obj),
+                'train_gap' : np.mean(t_gap),
+                'train_gap_max' : np.amax(t_gap),
+                'train_gap_min' : np.amin(t_gap),
+                'train_normed_gap_integral' : np.mean(t_normed_gap_integral),
+                'train_normed_optimality_integral' : np.mean(t_normed_optimality_integral)
             })
 
         # Send the stats to wandb

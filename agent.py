@@ -3,10 +3,13 @@ import threading
 import queue
 
 import ecole.reward
+import ecole.reward
 import utilities
 import numpy as np
 from collections import namedtuple
 from pyscipopt import Model, SCIP_PARAMSETTING
+
+from custom_rewards import *
 
 
 class AgentPool():
@@ -34,7 +37,7 @@ class AgentPool():
         self.policy_queries_queue.put(None)
         self.policy_queries_queue.join()
 
-    def start_job(self, instances, sample_rate, greedy=False, block_policy=False, heuristics=True):
+    def start_job(self, instances, sample_rate, greedy=False, block_policy=False, heuristics_on=True, heuristics_off=False):
         """
         Starts a job.
         A job is a set of tasks. A task consists of an instance that needs to be solved and instructions
@@ -52,10 +55,16 @@ class AgentPool():
             policy_access.set()
 
         for instance in instances:
-            task = {'instance': instance, 'sample_rate': sample_rate, 'greedy': greedy,
-                    'samples': samples, 'stats': stats, 'policy_access': policy_access, 'heuristics': heuristics}
-            job_sponsor.put(task)
-            self.jobs_queue.put(job_sponsor)
+            if heuristics_on:
+                task = {'instance': instance, 'sample_rate': sample_rate, 'greedy': greedy,
+                        'samples': samples, 'stats': stats, 'policy_access': policy_access, 'heuristics': True}
+                job_sponsor.put(task)
+                self.jobs_queue.put(job_sponsor)
+            if heuristics_off:
+                task = {'instance': instance, 'sample_rate': sample_rate, 'greedy': greedy,
+                        'samples': samples, 'stats': stats, 'policy_access': policy_access, 'heuristics': False}
+                job_sponsor.put(task)
+                self.jobs_queue.put(job_sponsor)
 
         ret = (samples, stats, job_sponsor)
         if block_policy:
@@ -135,8 +144,13 @@ class Agent(threading.Thread):
         information_function={
             'nnodes': ecole.reward.NNodes().cumsum(),
             'lpiters': ecole.reward.LpIterations().cumsum(),
+            'num_lps': DeltaNumLPs().cumsum(),
             'time': ecole.reward.SolvingTime().cumsum(),
-            'suboptimal_objective': ecole.reward.SubOptimality()
+            'suboptimal_objective': ecole.reward.SubOptimality(),
+            'primal_obj': DeltaPrimalObj().cumsum(),
+            'normed_integral_one_over_primal' : (DeltaNumLPs() / DeltaPrimalObj().cumsum()).cumsum() / DeltaNumLPs().cumsum(),
+            'gap' : DeltaGap().cumsum(),
+            'normed_gap_integral' : (DeltaNumLPs() * DeltaGap().cumsum()).cumsum() / DeltaNumLPs().cumsum()
         }
 
         if mode == 'tmdp+ObjLim':
@@ -217,7 +231,7 @@ class Agent(threading.Thread):
                 iter_count += 1
                 if (iter_count>50000) and training: done=True # avoid too large trees during training for stability
 
-            print(f"agent on {instance['path']} finshed after {iter_count} iters, num transitions recorded: {len(transitions)} ")
+            print(f"agent on {instance['path']} finshed after {iter_count} iters, num transitions recorded: {len(transitions)} - heuristics {heuristics}")
 
             if nan_found:
                 job_sponsor.task_done()
@@ -239,18 +253,16 @@ class Agent(threading.Thread):
                     assert self.mode == 'mdp'
                     for transition in transitions:
                         transition.returns = transition.cum_nnodes - cum_nnodes
-            if training:
-                optimal_sol = instance.get('sol', None)
-            elif self.env.model.is_solved:
-                optimal_sol = self.env.model.primal_bound
-            else:
-                print(f"validation {instance['path']} is not solved. subopt_gap cant be calculated!")
-                optimal_sol = ptimal_sol = self.env.model.dual_bound
+
+            optimal_sol = instance.get('sol', None)
+            #print(f"{instance['path']} does not provide optimal value. subopt_gap cant be calculated - taking dual bound instead!")
             info['subopt_gap'] = (info['suboptimal_objective'] - optimal_sol) / optimal_sol
+            info['normed_optimality_integral'] = info['normed_integral_one_over_primal'] * optimal_sol
+
 
             # record episode samples and stats
             samples.extend(transitions)
-            stats.append({'order': task, 'info': info})
+            stats.append({'order': task, 'info': info, 'heuristics': heuristics})
 
             # tell both the agent pool and the original task sponsor that the task is done
             job_sponsor.task_done()

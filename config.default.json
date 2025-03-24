@@ -4,20 +4,19 @@
     "entropy_bonus": 1e-5,
 
     "num_epochs": 200000,
-    "time_limit": 3600,
-    "num_episodes_per_epoch": 20,
+    "time_limit": 360,
+    "num_episodes_per_epoch": 10,
     "num_nodes_per_epoch": 2000,
     "sample_rate": 0.5,
 
     "batch_size": 32,
-    "num_agents": 25,
+    "num_agents": 20,
     "episodes_preemption": 1,
 
-    "num_valid_instances": 100,
-    "num_valid_seeds": 2,
+    "num_valid_instances": 50,
+    "num_valid_seeds": 5,
     "validate_every": 100,
     "heuristics_during_training" : false,
-    "heuristics_during_validation" : false,
     "gpu": 0,
     "seed": 0
 }
