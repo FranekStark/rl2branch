@@ -258,6 +258,7 @@ if __name__ == '__main__':
         for heur in [True, False]:
             v_nnodess = [s['info']['nnodes'] for s in v_stats if s['heuristics'] == heur]
             v_lpiterss = [s['info']['lpiters'] for s in v_stats if s['heuristics'] == heur]
+            v_num_lps = [s['info']['num_lps'] for s in v_stats if s['heuristics'] == heur]
             v_times = [s['info']['time'] for s in v_stats if s['heuristics'] == heur]
             v_subopt_gap = [s['info']['subopt_gap'] for s in v_stats if s['heuristics'] == heur]
             v_primal_obj = [s['info']['primal_obj'] for s in v_stats if s['heuristics'] == heur]
@@ -274,6 +275,9 @@ if __name__ == '__main__':
                 f'valid{heur_str}_nnodes_min': np.amin(v_nnodess),
                 f'valid{heur_str}_time': np.mean(v_times),
                 f'valid{heur_str}_lpiters': np.mean(v_lpiterss),
+                f'valid{heur_str}_num_lps': np.mean(v_num_lps),
+                f'valid{heur_str}_num_lps_min': np.amin(v_num_lps),
+                f'valid{heur_str}_num_lps_max': np.amax(v_num_lps),
                 f'valid{heur_str}_subopt_gap' : np.mean(v_subopt_gap),
                 f'valid{heur_str}_subopt_max' : np.amax(v_subopt_gap),
                 f'valid{heur_str}_subopt_min' : np.amin(v_subopt_gap),
@@ -311,6 +315,7 @@ if __name__ == '__main__':
 
             t_nnodess = [s['info']['nnodes'] for s in t_stats]
             t_lpiterss = [s['info']['lpiters'] for s in t_stats]
+            t_num_lps = [s['info']['num_lps'] for s in t_stats]
             t_times = [s['info']['time'] for s in t_stats]
             t_subopt_gap = [s['info']['subopt_gap'] for s in t_stats]
             t_primal_obj = [s['info']['primal_obj'] for s in t_stats]
@@ -324,6 +329,9 @@ if __name__ == '__main__':
                 'train_nnodes': np.mean(t_nnodess),
                 'train_time': np.mean(t_times),
                 'train_lpiters': np.mean(t_lpiterss),
+                'train_num_lps': np.mean(t_num_lps),
+                'train_num_lps_min': np.amin(t_num_lps),
+                'train_num_lps_max': np.amax(t_num_lps),
                 'train_nsamples': len(t_samples),
                 'train_loss': t_losses.get('loss', None),
                 'train_reinforce_loss': t_losses.get('reinforce_loss', None),
