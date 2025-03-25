@@ -147,10 +147,10 @@ class Agent(threading.Thread):
             'num_lps': DeltaNumLPs().cumsum(),
             'time': ecole.reward.SolvingTime().cumsum(),
             'suboptimal_objective': ecole.reward.SubOptimality(),
-            'primal_obj': DeltaPrimalObj().cumsum(),
-            'normed_integral_one_over_primal' : (DeltaNumLPs() / DeltaPrimalObj().cumsum()).cumsum() / DeltaNumLPs().cumsum(),
-            'gap' : DeltaGap().cumsum(),
-            'normed_gap_integral' : (DeltaNumLPs() * DeltaGap().cumsum()).cumsum() / DeltaNumLPs().cumsum()
+            'primal_obj': PrimalObj(),
+            'normed_integral_one_over_primal' : ((1 + DeltaNumLPs()) / PrimalObj()).cumsum() / DeltaNumLPs().cumsum(),
+            'gap' : Gap(),
+            'normed_gap_integral' : ((1 + DeltaNumLPs()) * Gap()).cumsum() / DeltaNumLPs().cumsum()
         }
 
         if mode == 'tmdp+ObjLim':

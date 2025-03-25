@@ -213,7 +213,7 @@ if __name__ == '__main__':
 
     # Already start jobs
     if is_validation_epoch(0):
-        _, v_stats_next, v_queue_next, v_access_next = agent_pool.start_job(valid_batch, sample_rate=0.0, greedy=True, block_policy=True, heuristics_on=True, heuristics_off=True)
+        _, v_stats_next, v_queue_next, v_access_next = agent_pool.start_job(valid_batch, sample_rate=0.0, greedy=True, block_policy=True, heuristics_on=config['heuristics_during_validation_on'], heuristics_off=config['heuristics_during_validation_off'])
 
     if is_training_epoch(0):
         train_batch = next(train_batches)
@@ -245,7 +245,7 @@ if __name__ == '__main__':
         # Start next epoch's jobs
         if epoch + 1 <= config["num_epochs"]:
             if is_validation_epoch(epoch + 1):
-                _, v_stats_next, v_queue_next, v_access_next = agent_pool.start_job(valid_batch, sample_rate=0.0, greedy=True, block_policy=True, heuristics_on=True, heuristics_off=True)
+                _, v_stats_next, v_queue_next, v_access_next = agent_pool.start_job(valid_batch, sample_rate=0.0, greedy=True, block_policy=True, heuristics_on=config['heuristics_during_validation_on'], heuristics_off=config['heuristics_during_validation_off'])
             if is_training_epoch(epoch + 1):
                 train_batch = next(train_batches)
                 t_samples_next, t_stats_next, t_queue_next, t_access_next = agent_pool.start_job(train_batch, sample_rate=config['sample_rate'], greedy=False, block_policy=True,heuristics_on=config['heuristics_during_training'], heuristics_off= not config['heuristics_during_training'])
@@ -266,8 +266,10 @@ if __name__ == '__main__':
             v_normed_gap_integral = [s['info']['normed_gap_integral'] for s in v_stats if s['heuristics'] == heur]
             v_normed_optimality_integral = [s['info']['normed_optimality_integral'] for s in v_stats if s['heuristics'] == heur]
 
-            heur_str = '_h' if heur else ''
+            if(len(v_nnodess) == 0):
+                continue
 
+            heur_str = '_h' if heur else ''
             wandb_data.update({
                 f'valid{heur_str}_nnodes_g': gmean(np.asarray(v_nnodess) + 1) - 1,
                 f'valid{heur_str}_nnodes': np.mean(v_nnodess),
@@ -279,12 +281,16 @@ if __name__ == '__main__':
                 f'valid{heur_str}_num_lps_min': np.amin(v_num_lps),
                 f'valid{heur_str}_num_lps_max': np.amax(v_num_lps),
                 f'valid{heur_str}_subopt_gap' : np.mean(v_subopt_gap),
-                f'valid{heur_str}_subopt_max' : np.amax(v_subopt_gap),
-                f'valid{heur_str}_subopt_min' : np.amin(v_subopt_gap),
+                f'valid{heur_str}_subopt_gap_median' : np.median(v_subopt_gap),
+                f'valid{heur_str}_subopt_gap_ninf' : np.isinf(v_subopt_gap).sum(),
+                f'valid{heur_str}_subopt_gap_max' : np.amax(v_subopt_gap),
+                f'valid{heur_str}_subopt_gap_min' : np.amin(v_subopt_gap),
                 f'valid{heur_str}_primal_obj' : np.mean(v_primal_obj),
                 f'valid{heur_str}_primal_obj_max' : np.amax(v_primal_obj),
                 f'valid{heur_str}_primal_obj_min' : np.amin(v_primal_obj),
                 f'valid{heur_str}_gap' : np.mean(v_gap),
+                f'valid{heur_str}_gap_median' : np.median(v_gap),
+                f'valid{heur_str}_gap_ninf' : np.isinf(v_gap).sum(),
                 f'valid{heur_str}_gap_max' : np.amax(v_gap),
                 f'valid{heur_str}_gap_min' : np.amin(v_gap),
                 f'valid{heur_str}_normed_gap_integral' : np.mean(v_normed_gap_integral),
@@ -298,8 +304,8 @@ if __name__ == '__main__':
                 f'valid{heur_str}_nnodes_g_norm': wandb_data[f'valid{heur_str}_nnodes_g'] / v_nnodes_g_0,
             })
 
-        if wandb_data['valid_nnodes_g'] < best_tree_size:
-            best_tree_size = wandb_data['valid_nnodes_g']
+        if wandb_data['valid_h_nnodes_g'] < best_tree_size:
+            best_tree_size = wandb_data['valid_h_nnodes_g']
             logger.info('Best parameters so far (1-shifted geometric mean), saving model.')
             brain.save()
         # saving every valid epoch:
@@ -349,7 +355,8 @@ if __name__ == '__main__':
                 'train_gap_max' : np.amax(t_gap),
                 'train_gap_min' : np.amin(t_gap),
                 'train_normed_gap_integral' : np.mean(t_normed_gap_integral),
-                'train_normed_optimality_integral' : np.mean(t_normed_optimality_integral)
+                'train_normed_optimality_integral' : np.mean(t_normed_optimality_integral),
+                't_samples': len(t_samples)
             })
 
         # Send the stats to wandb
