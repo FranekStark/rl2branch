@@ -148,7 +148,7 @@ class Agent(threading.Thread):
             'time': ecole.reward.SolvingTime().cumsum(),
             'suboptimal_objective': ecole.reward.SubOptimality(),
             'primal_obj': PrimalObj(),
-            'normed_integral_one_over_primal' : ((1 + DeltaNumLPs()) / (PrimalObj()+0.1)).cumsum() / DeltaNumLPs().cumsum(),
+            'normed_integral_one_over_primal' : ((1 + DeltaNumLPs()) / (PrimalObj() + 0.1)).cumsum() / DeltaNumLPs().cumsum(),
             'gap' : Gap(),
             'normed_gap_integral' : ((1 + DeltaNumLPs()) * Gap()).cumsum() / DeltaNumLPs().cumsum()
         }

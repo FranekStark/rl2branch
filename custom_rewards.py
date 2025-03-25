@@ -30,6 +30,9 @@ class PrimalObj():
     def cumsum(self):
         return Cumulative(self, lambda x, y: x + y, 0., "{}.cumsum()")
     
+    def __add__(self, value : float):
+        return Arithmetic(lambda  x, y: x + y, [self, value], "({} + {})")
+    
 class DeltaDual():
     def __init__(self, *args, **kwargs):
         pass
