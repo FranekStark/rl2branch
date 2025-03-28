@@ -263,7 +263,7 @@ class Agent(threading.Thread):
 
             optimal_sol = instance.get('sol', None)
             #print(f"{instance['path']} does not provide optimal value. subopt_gap cant be calculated - taking dual bound instead!")
-            #info['subopt_gap'] = (info['suboptimal_objective'] - optimal_sol) / optimal_soWl
+            info['subopt_gap'] = (info['suboptimal_objective'] - optimal_sol) / optimal_sol
             #print(f"agent on {instance['path']} - primal  negative bef ({info['primal_integral']}/{optimal_sol} = {info['primal_integral'] / optimal_sol} ) with: \n {info}")
 
             info['primal_integral'] = (info['primal_integral'] / optimal_sol) - info['num_lps']
