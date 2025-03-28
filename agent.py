@@ -148,7 +148,10 @@ class Agent(threading.Thread):
             'time': ecole.reward.SolvingTime().cumsum(),
             'suboptimal_objective': ecole.reward.SubOptimality(),
             'primal_obj': PrimalObj(),
-            'primal_integral' : (DeltaNumLPs() * NotInf(PrimalObj(),0.0)).cumsum() + (FirstNotInf(PrimalObj()) * BeforeFirstFesibleSol(DeltaNumLPs().cumsum())).cumsum(),
+            'primal_integral_after' : (DeltaNumLPs() * NotInf(PrimalObj(),0.0)).cumsum() ,
+            'primal_integral_before' : (FirstNotInf(PrimalObj()) * BeforeFirstFesibleSol(DeltaNumLPs().cumsum())) ,
+            'primal_first_not_inf': FirstNotInf(PrimalObj()),
+            'primal_integral' : (DeltaNumLPs() * NotInf(PrimalObj(),0.0)).cumsum() + (FirstNotInf(PrimalObj()) * BeforeFirstFesibleSol(DeltaNumLPs().cumsum())),
             'gap' : Gap(),
             'gap_integral' : (DeltaNumLPs() * NotInf(Gap(),0.0)).cumsum() + (FirstNotInf(Gap()) * BeforeFirstFesibleSol(DeltaNumLPs().cumsum())).cumsum(),
             'num_lps_for_first_feasible': BeforeFirstFesibleSol(DeltaNumLPs().cumsum())
@@ -206,6 +209,8 @@ class Agent(threading.Thread):
             observation, action_set, cum_nnodes, done, info = self.env.reset(instance = instance['path'],
                                                                              primal_bound=instance.get('sol', None),
                                                                              training=training, heuristics=heuristics, time_limit=self.time_limit)
+            #print(f"agent on {instance['path']} reset info {info}")
+
             policy_access.wait()
             iter_count = 0
             nan_found = False
@@ -229,10 +234,11 @@ class Agent(threading.Thread):
                         transitions.append(transition)
 
                 observation, action_set, cum_nnodes, done, info = self.env.step(action)
+                #print(f"agent on {instance['path']} step info {info}")
                 iter_count += 1
                 if (iter_count>50000) and training: done=True # avoid too large trees during training for stability
 
-            print(f"agent on {instance['path']} finshed after {iter_count} iters, num transitions recorded: {len(transitions)} - heuristics {heuristics}")
+            #print(f"agent on {instance['path']} finshed after {iter_count} iters, num transitions recorded: {len(transitions)} - heuristics {heuristics}")
 
             if nan_found:
                 job_sponsor.task_done()
@@ -257,12 +263,22 @@ class Agent(threading.Thread):
 
             optimal_sol = instance.get('sol', None)
             #print(f"{instance['path']} does not provide optimal value. subopt_gap cant be calculated - taking dual bound instead!")
-            info['subopt_gap'] = (info['suboptimal_objective'] - optimal_sol) / optimal_sol
-            if(info['num_lps'] == 0):
-                info['primal_integral'] = 0.0 
-            else:
-                info['primal_integral'] = (info['primal_integral'] / optimal_sol) - info['num_lps']
+            #info['subopt_gap'] = (info['suboptimal_objective'] - optimal_sol) / optimal_soWl
+            #print(f"agent on {instance['path']} - primal  negative bef ({info['primal_integral']}/{optimal_sol} = {info['primal_integral'] / optimal_sol} ) with: \n {info}")
 
+            info['primal_integral'] = (info['primal_integral'] / optimal_sol) - info['num_lps']
+
+            #if info['num_lps'] <= 0:
+            #    print(f"agent on {instance['path']}  - num_lps zero or negative ({info['num_lps']} with: \n {info}")
+            #    exit()
+
+            #if info['primal_integral'] <= -0.1:
+            #    print(f"agent on {instance['path']}  - primal  negative ({info['primal_integral']}) with: \n {info}")
+            #    exit()
+            
+            #if info['primal_integral'] > 0.1:
+            #    print(f'finished with primal big ({optimal_sol}) with {info}')
+            #    exit()
 
             # record episode samples and stats
             samples.extend(transitions)

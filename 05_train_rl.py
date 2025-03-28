@@ -373,7 +373,7 @@ if __name__ == '__main__':
                 'train_primal_integral_min' : np.amin(t_primal_integral),
                 'train_primal_integral_max' : np.amax(t_primal_integral),
                 'train_primal_integral_median' : np.median(t_primal_integral),
-                'train_num_lps_for_first_feasible' : np.mean(t_num_lps_for_first_feasible)                
+                'train_num_lps_for_first_feasible' : np.mean(t_num_lps_for_first_feasible)              
 
             })
 

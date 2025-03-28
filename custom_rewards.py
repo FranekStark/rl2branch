@@ -81,7 +81,7 @@ class DeltaNumLPs():
         return Arithmetic(lambda  x, y: x / y, [self, value], "({} / {})")
     
     def cumsum(self):
-        return Cumulative(self, lambda x, y: x + y, 1., "{}.cumsum()")
+        return Cumulative(self, lambda x, y: x + y, 0., "{}.cumsum()")
         
 
 class Gap():
