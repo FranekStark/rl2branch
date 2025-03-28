@@ -130,11 +130,11 @@ class Agent(threading.Thread):
         self.policy_queries_queue = policy_queries_queue
         self.policy_answers_queue = queue.Queue()
         self.mode = mode
+        self.time_limit = time_limit
 
         # Setup Ecole environment
         scip_params={'separating/maxrounds': 0,
                      'presolving/maxrestarts': 0,
-                     'limits/time': time_limit,
                      'timing/clocktype': 2}
         observation_function=(
             ecole.observation.FocusNode(),
@@ -148,9 +148,10 @@ class Agent(threading.Thread):
             'time': ecole.reward.SolvingTime().cumsum(),
             'suboptimal_objective': ecole.reward.SubOptimality(),
             'primal_obj': PrimalObj(),
-            'normed_integral_one_over_primal' : ((1 + DeltaNumLPs()) / (PrimalObj() + 0.1)).cumsum() / DeltaNumLPs().cumsum(),
+            'primal_integral' : (DeltaNumLPs() * NotInf(PrimalObj(),0.0)).cumsum() + (FirstNotInf(PrimalObj()) * BeforeFirstFesibleSol(DeltaNumLPs().cumsum())).cumsum(),
             'gap' : Gap(),
-            'normed_gap_integral' : ((1 + DeltaNumLPs()) * Gap()).cumsum() / DeltaNumLPs().cumsum()
+            'gap_integral' : (DeltaNumLPs() * NotInf(Gap(),0.0)).cumsum() + (FirstNotInf(Gap()) * BeforeFirstFesibleSol(DeltaNumLPs().cumsum())).cumsum(),
+            'num_lps_for_first_feasible': BeforeFirstFesibleSol(DeltaNumLPs().cumsum())
         }
 
         if mode == 'tmdp+ObjLim':
@@ -204,7 +205,7 @@ class Agent(threading.Thread):
             # Run episode
             observation, action_set, cum_nnodes, done, info = self.env.reset(instance = instance['path'],
                                                                              primal_bound=instance.get('sol', None),
-                                                                             training=training, heuristics=heuristics)
+                                                                             training=training, heuristics=heuristics, time_limit=self.time_limit)
             policy_access.wait()
             iter_count = 0
             nan_found = False
@@ -257,7 +258,7 @@ class Agent(threading.Thread):
             optimal_sol = instance.get('sol', None)
             #print(f"{instance['path']} does not provide optimal value. subopt_gap cant be calculated - taking dual bound instead!")
             info['subopt_gap'] = (info['suboptimal_objective'] - optimal_sol) / optimal_sol
-            info['normed_optimality_integral'] = info['normed_integral_one_over_primal'] * optimal_sol
+            info['primal_integral'] = (info['primal_integral'] / optimal_sol) - info['num_lps']
 
 
             # record episode samples and stats
@@ -308,7 +309,7 @@ class DFSBranchingDynamics(ecole.dynamics.BranchingDynamics):
     """
     Custom branching environment that changes the node strategy to DFS when training.
     """
-    def reset_dynamics(self, model, primal_bound, training, heuristics, *args, **kwargs):
+    def reset_dynamics(self, model, primal_bound, training, heuristics, time_limit,*args, **kwargs):
         pyscipopt_model = model.as_pyscipopt()
         if training:
             # Set the dfs node selector as the least important
@@ -324,6 +325,11 @@ class DFSBranchingDynamics(ecole.dynamics.BranchingDynamics):
         else:
             pyscipopt_model.setHeuristics(SCIP_PARAMSETTING.OFF)
 
+        if training:
+            pyscipopt_model.setParam(f"limits/time", time_limit)
+        else:
+            pyscipopt_model.setParam(f"limits/time", time_limit)
+
         return super().reset_dynamics(model, *args, **kwargs)
 
 class DFSBranchingEnv(ecole.environment.Environment):
@@ -333,7 +339,7 @@ class ObjLimBranchingDynamics(ecole.dynamics.BranchingDynamics):
     """
     Custom branching environment that allows the user to set an initial primal bound.
     """
-    def reset_dynamics(self, model, primal_bound, training, heuristics, *args, **kwargs):
+    def reset_dynamics(self, model, primal_bound, training, heuristics, time_limit, *args, **kwargs):
         pyscipopt_model = model.as_pyscipopt()
         if primal_bound is not None:
             pyscipopt_model.setObjlimit(primal_bound)
@@ -342,6 +348,11 @@ class ObjLimBranchingDynamics(ecole.dynamics.BranchingDynamics):
             pyscipopt_model.setHeuristics(SCIP_PARAMSETTING.DEFAULT)
         else:
             pyscipopt_model.setHeuristics(SCIP_PARAMSETTING.OFF)
+
+        if training:
+            pyscipopt_model.setParam(f"limits/time", time_limit)
+        else:
+            pyscipopt_model.setParam(f"limits/time", time_limit)
 
         return super().reset_dynamics(model, *args, **kwargs)
 
@@ -353,12 +364,17 @@ class MDPBranchingDynamics(ecole.dynamics.BranchingDynamics):
     Regular branching environment that allows extra input parameters, but does
     not use them.
     """
-    def reset_dynamics(self, model, primal_bound, training, heuristics, *args, **kwargs):
+    def reset_dynamics(self, model, primal_bound, training, heuristics, time_limit, *args, **kwargs):
         pyscipopt_model = model.as_pyscipopt()
         if heuristics:
             pyscipopt_model.setHeuristics(SCIP_PARAMSETTING.DEFAULT)
         else:
             pyscipopt_model.setHeuristics(SCIP_PARAMSETTING.OFF)
+
+        if training:
+            pyscipopt_model.setParam(f"limits/time", time_limit)
+        else:
+            pyscipopt_model.setParam(f"limits/time", time_limit)
         
         return super().reset_dynamics(model, *args, **kwargs)
     

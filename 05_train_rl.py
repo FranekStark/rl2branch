@@ -263,8 +263,9 @@ if __name__ == '__main__':
             v_subopt_gap = [s['info']['subopt_gap'] for s in v_stats if s['heuristics'] == heur]
             v_primal_obj = [s['info']['primal_obj'] for s in v_stats if s['heuristics'] == heur]
             v_gap = [s['info']['gap'] for s in v_stats if s['heuristics'] == heur]
-            v_normed_gap_integral = [s['info']['normed_gap_integral'] for s in v_stats if s['heuristics'] == heur]
-            v_normed_optimality_integral = [s['info']['normed_optimality_integral'] for s in v_stats if s['heuristics'] == heur]
+            v_gap_integral = [s['info']['gap_integral'] for s in v_stats if s['heuristics'] == heur]
+            v_primal_integral = [s['info']['primal_integral'] for s in v_stats if s['heuristics'] == heur]
+            v_num_lps_for_first_feasible = [s['info']['num_lps_for_first_feasible'] for s in v_stats if s['heuristics'] == heur]
 
             if(len(v_nnodess) == 0):
                 continue
@@ -288,13 +289,23 @@ if __name__ == '__main__':
                 f'valid{heur_str}_primal_obj' : np.mean(v_primal_obj),
                 f'valid{heur_str}_primal_obj_max' : np.amax(v_primal_obj),
                 f'valid{heur_str}_primal_obj_min' : np.amin(v_primal_obj),
+                f'valid{heur_str}_primal_obj_ninf' : np.isinf(v_primal_obj).sum(),
+                f'valid{heur_str}_primal_obj_median' : np.median(v_primal_obj),
                 f'valid{heur_str}_gap' : np.mean(v_gap),
                 f'valid{heur_str}_gap_median' : np.median(v_gap),
                 f'valid{heur_str}_gap_ninf' : np.isinf(v_gap).sum(),
+                f'valid{heur_str}_gap_nzero' : (np.abs(np.asarray(v_gap)) <= 1e-08).sum(),
+                f'valid{heur_str}_gap_nnotzero' : (np.abs(np.asarray(v_gap)) > 1e-08).sum(),
                 f'valid{heur_str}_gap_max' : np.amax(v_gap),
                 f'valid{heur_str}_gap_min' : np.amin(v_gap),
-                f'valid{heur_str}_normed_gap_integral' : np.mean(v_normed_gap_integral),
-                f'valid{heur_str}_normed_optimality_integral' : np.mean(v_normed_optimality_integral)
+                f'valid{heur_str}_gap_integral' : np.mean(v_gap_integral),
+                f'valid{heur_str}_primal_integral' : np.mean(v_primal_integral),
+                f'valid{heur_str}_primal_integral_ninf' : np.isinf(v_primal_integral).sum(),
+                f'valid{heur_str}_primal_integral_min' : np.amin(v_primal_integral),
+                f'valid{heur_str}_primal_integral_max' : np.amax(v_primal_integral),
+                f'valid{heur_str}_primal_integral_median' : np.median(v_primal_integral),
+                f'valid{heur_str}_num_lps_for_first_feasible' : np.mean(v_num_lps_for_first_feasible)                
+
             })
             if epoch == 0:
                 v_nnodes_0 = wandb_data[f'valid{heur_str}_nnodes'] if wandb_data[f'valid{heur_str}_nnodes'] != 0 else 1
@@ -326,8 +337,9 @@ if __name__ == '__main__':
             t_subopt_gap = [s['info']['subopt_gap'] for s in t_stats]
             t_primal_obj = [s['info']['primal_obj'] for s in t_stats]
             t_gap = [s['info']['gap'] for s in t_stats]
-            t_normed_gap_integral = [s['info']['normed_gap_integral'] for s in t_stats]
-            t_normed_optimality_integral = [s['info']['normed_optimality_integral'] for s in t_stats]
+            t_gap_integral = [s['info']['gap_integral'] for s in t_stats]
+            t_primal_integral = [s['info']['primal_integral'] for s in t_stats]
+            t_num_lps_for_first_feasible = [s['info']['num_lps_for_first_feasible'] for s in t_stats]
 
 
             wandb_data.update({
@@ -353,10 +365,14 @@ if __name__ == '__main__':
                 'train_primal_obj_min' : np.amin(t_primal_obj),
                 'train_gap' : np.mean(t_gap),
                 'train_gap_max' : np.amax(t_gap),
-                'train_gap_min' : np.amin(t_gap),
-                'train_normed_gap_integral' : np.mean(t_normed_gap_integral),
-                'train_normed_optimality_integral' : np.mean(t_normed_optimality_integral),
-                't_samples': len(t_samples)
+                'train_gap_integral' : np.mean(t_gap_integral),
+                'train_primal_integral' : np.mean(t_primal_integral),
+                'train_primal_integral_ninf' : np.isinf(t_primal_integral).sum(),
+                'train_primal_integral_min' : np.amin(t_primal_integral),
+                'train_primal_integral_max' : np.amax(t_primal_integral),
+                'train_primal_integral_median' : np.median(t_primal_integral),
+                'train_num_lps_for_first_feasible' : np.mean(t_num_lps_for_first_feasible)                
+
             })
 
         # Send the stats to wandb
