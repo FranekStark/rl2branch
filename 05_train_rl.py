@@ -366,6 +366,8 @@ if __name__ == '__main__':
                 'train_gap' : np.mean(t_gap),
                 'train_gap_max' : np.amax(t_gap),
                 'train_gap_integral' : np.mean(t_gap_integral),
+                'train_gap_nzero' : (np.abs(np.asarray(t_gap)) <= 1e-08).sum(),
+                'train_gap_nnotzero' : (np.abs(np.asarray(t_gap)) > 1e-08).sum(),
                 'train_primal_integral' : np.mean(t_primal_integral),
                 'train_primal_integral_ninf' : np.isinf(t_primal_integral).sum(),
                 'train_primal_integral_min' : np.amin(t_primal_integral),
