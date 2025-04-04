@@ -18,7 +18,7 @@
     "validate_every": 50,
     "heuristics_during_training" : true,
     "heuristics_during_validation_on" : true,
-    "heuristics_during_validation_off" : false,
+    "heuristics_during_validation_off" : true,
     "gpu": 0,
     "seed": 0
 }
