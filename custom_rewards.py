@@ -95,6 +95,33 @@ class Gap():
     def cumsum(self):
         return Cumulative(self, lambda x, y: x + y, 0., "{}.cumsum()")
     
+class PrimalGapFunction():
+    def __init__(self, primal_bound_lookup_fun, *args, **kwargs):
+        self.primal_bound_lookup_fun = primal_bound_lookup_fun
+
+    def before_reset(self, model : ecole.scip.Model):
+        self.primal_bound = self.primal_bound_lookup_fun(model.name)
+
+    def extract(self, model : ecole.scip.Model, done : bool):
+        pysciopt_model = model.as_pyscipopt()
+        n_sols = len(pysciopt_model.getSols())
+        if n_sols == 0:
+            return 1
+        else:
+            best_sol = pysciopt_model.getBestSol()
+            primal_val =  pysciopt_model.getSolObjVal(best_sol)
+            if self.primal_bound == 0 and primal_val == 0:
+                return 0
+            elif self.primal_bound * primal_val < 0:
+                return 1
+            else:
+                return abs(primal_val - self.primal_bound) / max(abs(primal_val), abs(self.primal_bound))
+
+    def __rmul__(self, value : float):
+        return Arithmetic(lambda  x, y: y * x, [self, value], "({1} * {0})")
+    
+    
+
 
 class BeforeFirstFesibleSol():
     def __init__(self, metric, initial_value=0, *args, **kwargs):

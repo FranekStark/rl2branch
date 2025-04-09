@@ -17,11 +17,11 @@ class AgentPool():
     Class holding the reference to the agents and the policy sampler.
     Puts jobs in the queue through job sponsors.
     """
-    def __init__(self, brain, n_agents, time_limit, mode):
+    def __init__(self, brain, n_agents, time_limit, mode, optimal_vals):
         self.jobs_queue = queue.Queue()
         self.policy_queries_queue = queue.Queue()
         self.policy_sampler = PolicySampler("Policy Sampler", brain, self.policy_queries_queue)
-        self.agents = [Agent(f"Agent {i}", time_limit, self.jobs_queue, self.policy_queries_queue, mode) for i in range(n_agents)]
+        self.agents = [Agent(f"Agent {i}", time_limit, self.jobs_queue, self.policy_queries_queue, mode, optimal_vals) for i in range(n_agents)]
 
     def start(self):
         self.policy_sampler.start()
@@ -124,14 +124,14 @@ class Agent(threading.Thread):
     Agent class. Receives tasks from the job sponsor, runs them and samples transitions if
     requested.
     """
-    def __init__(self, name, time_limit, jobs_queue, policy_queries_queue, mode):
+    def __init__(self, name, time_limit, jobs_queue, policy_queries_queue, mode, optimal_vals):
         super().__init__(name=name)
         self.jobs_queue = jobs_queue
         self.policy_queries_queue = policy_queries_queue
         self.policy_answers_queue = queue.Queue()
         self.mode = mode
         self.time_limit = time_limit
-
+        self.optimal_val_lookup_fun  = lambda name : optimal_vals[name]
         # Setup Ecole environment
         scip_params={'separating/maxrounds': 0,
                      'presolving/maxrestarts': 0,
@@ -141,21 +141,20 @@ class Agent(threading.Thread):
             ecole.observation.NodeBipartite()
             )
         reward_function=ecole.reward.NNodes().cumsum()
-        information_function={
+        information_function= {
             'nnodes': ecole.reward.NNodes().cumsum(),
             'lpiters': ecole.reward.LpIterations().cumsum(),
             'num_lps': DeltaNumLPs().cumsum(),
             'time': ecole.reward.SolvingTime().cumsum(),
-            'suboptimal_objective': ecole.reward.SubOptimality(),
             'primal_obj': PrimalObj(),
-            'primal_integral_after' : (DeltaNumLPs() * NotInf(PrimalObj(),0.0)).cumsum() ,
-            'primal_integral_before' : (FirstNotInf(PrimalObj()) * BeforeFirstFesibleSol(DeltaNumLPs().cumsum())) ,
-            'primal_first_not_inf': FirstNotInf(PrimalObj()),
-            'primal_integral' : (DeltaNumLPs() * NotInf(PrimalObj(),0.0)).cumsum() + (FirstNotInf(PrimalObj()) * BeforeFirstFesibleSol(DeltaNumLPs().cumsum())),
+            'primal_gap': PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun),
             'gap' : Gap(),
-            'gap_integral' : (DeltaNumLPs() * NotInf(Gap(),0.0)).cumsum() + (FirstNotInf(Gap()) * BeforeFirstFesibleSol(DeltaNumLPs().cumsum())).cumsum(),
+            'primal_integral': (DeltaNumLPs() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
+            'primal_integral2': (ecole.reward.LpIterations() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'num_lps_for_first_feasible': BeforeFirstFesibleSol(DeltaNumLPs().cumsum())
         }
+
+        
 
         if mode == 'tmdp+ObjLim':
             self.env = ObjLimBranchingEnv(scip_params=scip_params,
@@ -238,7 +237,7 @@ class Agent(threading.Thread):
                 iter_count += 1
                 if (iter_count>50000) and training: done=True # avoid too large trees during training for stability
 
-            #print(f"agent on {instance['path']} finshed after {iter_count} iters, num transitions recorded: {len(transitions)} - heuristics {heuristics}")
+            print(f"agent on {instance['path']} finished after {iter_count} iters, primal_integral at {info['primal_integral']}, primal_gap at {info['primal_gap']}. Num transitions recorded: {len(transitions)} - heuristics {heuristics}")
 
             if nan_found:
                 job_sponsor.task_done()
@@ -260,25 +259,6 @@ class Agent(threading.Thread):
                     assert self.mode == 'mdp'
                     for transition in transitions:
                         transition.returns = transition.cum_nnodes - cum_nnodes
-
-            optimal_sol = instance.get('sol', None)
-            #print(f"{instance['path']} does not provide optimal value. subopt_gap cant be calculated - taking dual bound instead!")
-            info['subopt_gap'] = (info['suboptimal_objective'] - optimal_sol) / optimal_sol
-            #print(f"agent on {instance['path']} - primal  negative bef ({info['primal_integral']}/{optimal_sol} = {info['primal_integral'] / optimal_sol} ) with: \n {info}")
-
-            info['primal_integral'] = (info['primal_integral'] / optimal_sol) - info['num_lps']
-
-            #if info['num_lps'] <= 0:
-            #    print(f"agent on {instance['path']}  - num_lps zero or negative ({info['num_lps']} with: \n {info}")
-            #    exit()
-
-            #if info['primal_integral'] <= -0.1:
-            #    print(f"agent on {instance['path']}  - primal  negative ({info['primal_integral']}) with: \n {info}")
-            #    exit()
-            
-            #if info['primal_integral'] > 0.1:
-            #    print(f'finished with primal big ({optimal_sol}) with {info}')
-            #    exit()
 
             # record episode samples and stats
             samples.extend(transitions)

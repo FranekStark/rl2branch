@@ -157,6 +157,9 @@ if __name__ == '__main__':
         train_sols = json.load(f)
     with open(f"{valid_path}/instance_solutions.json", "r") as f:
         valid_sols = json.load(f)
+
+    optimal_vals = train_sols.copy()
+    optimal_vals.update(valid_sols)
     
     # collect the tree sizes
     with open(f"{train_path}/instance_nnodes.json", "r") as f:
@@ -200,13 +203,13 @@ if __name__ == '__main__':
             print(f"vield batch with {len(batch)} instances and total {total_nodes} nodes")
             yield batch
 
-    train_batches = train_batch_generator_new()
+    train_batches = train_batch_generator()
 
     logger.info(f"Training on {len(train_instances)} training instances and {len(valid_instances)} validation instances")
 
 
     brain = Brain(config, device, args.problem, args.mode)
-    agent_pool = AgentPool(brain, config['num_agents'], config['time_limit'], args.mode)
+    agent_pool = AgentPool(brain, config['num_agents'], config['time_limit'], args.mode, optimal_vals)
     agent_pool.start()
     is_validation_epoch = lambda epoch: (epoch % config['validate_every'] == 0) or (epoch == config['num_epochs'])
     is_training_epoch = lambda epoch: (epoch < config['num_epochs'])
@@ -260,11 +263,10 @@ if __name__ == '__main__':
             v_lpiterss = [s['info']['lpiters'] for s in v_stats if s['heuristics'] == heur]
             v_num_lps = [s['info']['num_lps'] for s in v_stats if s['heuristics'] == heur]
             v_times = [s['info']['time'] for s in v_stats if s['heuristics'] == heur]
-            v_subopt_gap = [s['info']['subopt_gap'] for s in v_stats if s['heuristics'] == heur]
             v_primal_obj = [s['info']['primal_obj'] for s in v_stats if s['heuristics'] == heur]
             v_gap = [s['info']['gap'] for s in v_stats if s['heuristics'] == heur]
-            v_gap_integral = [s['info']['gap_integral'] for s in v_stats if s['heuristics'] == heur]
             v_primal_integral = [s['info']['primal_integral'] for s in v_stats if s['heuristics'] == heur]
+            v_primal_integral2 = [s['info']['primal_integral2'] for s in v_stats if s['heuristics'] == heur]
             v_num_lps_for_first_feasible = [s['info']['num_lps_for_first_feasible'] for s in v_stats if s['heuristics'] == heur]
 
             if(len(v_nnodess) == 0):
@@ -281,11 +283,6 @@ if __name__ == '__main__':
                 f'valid{heur_str}_num_lps': np.mean(v_num_lps),
                 f'valid{heur_str}_num_lps_min': np.amin(v_num_lps),
                 f'valid{heur_str}_num_lps_max': np.amax(v_num_lps),
-                f'valid{heur_str}_subopt_gap' : np.mean(v_subopt_gap),
-                f'valid{heur_str}_subopt_gap_median' : np.median(v_subopt_gap),
-                f'valid{heur_str}_subopt_gap_ninf' : np.isinf(v_subopt_gap).sum(),
-                f'valid{heur_str}_subopt_gap_max' : np.amax(v_subopt_gap),
-                f'valid{heur_str}_subopt_gap_min' : np.amin(v_subopt_gap),
                 f'valid{heur_str}_primal_obj' : np.mean(v_primal_obj),
                 f'valid{heur_str}_primal_obj_max' : np.amax(v_primal_obj),
                 f'valid{heur_str}_primal_obj_min' : np.amin(v_primal_obj),
@@ -298,14 +295,15 @@ if __name__ == '__main__':
                 f'valid{heur_str}_gap_nnotzero' : (np.abs(np.asarray(v_gap)) > 1e-08).sum(),
                 f'valid{heur_str}_gap_max' : np.amax(v_gap),
                 f'valid{heur_str}_gap_min' : np.amin(v_gap),
-                f'valid{heur_str}_gap_integral' : np.mean(v_gap_integral),
                 f'valid{heur_str}_primal_integral' : np.mean(v_primal_integral),
-                f'valid{heur_str}_primal_integral_ninf' : np.isinf(v_primal_integral).sum(),
                 f'valid{heur_str}_primal_integral_min' : np.amin(v_primal_integral),
                 f'valid{heur_str}_primal_integral_max' : np.amax(v_primal_integral),
                 f'valid{heur_str}_primal_integral_median' : np.median(v_primal_integral),
+                f'valid{heur_str}_primal_integral2' : np.mean(v_primal_integral2),
+                f'valid{heur_str}_primal_integral_min2' : np.amin(v_primal_integral2),
+                f'valid{heur_str}_primal_integral_max2' : np.amax(v_primal_integral2),
+                f'valid{heur_str}_primal_integral_median2' : np.median(v_primal_integral2),
                 f'valid{heur_str}_num_lps_for_first_feasible' : np.mean(v_num_lps_for_first_feasible)                
-
             })
             if epoch == 0:
                 v_nnodes_0 = wandb_data[f'valid{heur_str}_nnodes'] if wandb_data[f'valid{heur_str}_nnodes'] != 0 else 1
@@ -315,8 +313,8 @@ if __name__ == '__main__':
                 f'valid{heur_str}_nnodes_g_norm': wandb_data[f'valid{heur_str}_nnodes_g'] / v_nnodes_g_0,
             })
 
-        if wandb_data['valid_h_nnodes_g'] < best_tree_size:
-            best_tree_size = wandb_data['valid_h_nnodes_g']
+        if wandb_data['valid_nnodes_g'] < best_tree_size:
+            best_tree_size = wandb_data['valid_nnodes_g']
             logger.info('Best parameters so far (1-shifted geometric mean), saving model.')
             brain.save()
         # saving every valid epoch:
@@ -334,11 +332,10 @@ if __name__ == '__main__':
             t_lpiterss = [s['info']['lpiters'] for s in t_stats]
             t_num_lps = [s['info']['num_lps'] for s in t_stats]
             t_times = [s['info']['time'] for s in t_stats]
-            t_subopt_gap = [s['info']['subopt_gap'] for s in t_stats]
             t_primal_obj = [s['info']['primal_obj'] for s in t_stats]
             t_gap = [s['info']['gap'] for s in t_stats]
-            t_gap_integral = [s['info']['gap_integral'] for s in t_stats]
             t_primal_integral = [s['info']['primal_integral'] for s in t_stats]
+            t_primal_integral2 = [s['info']['primal_integral2'] for s in t_stats]
             t_num_lps_for_first_feasible = [s['info']['num_lps_for_first_feasible'] for s in t_stats]
 
 
@@ -354,18 +351,11 @@ if __name__ == '__main__':
                 'train_loss': t_losses.get('loss', None),
                 'train_reinforce_loss': t_losses.get('reinforce_loss', None),
                 'train_entropy': t_losses.get('entropy', None),
-                'train_subopt_gap' : np.mean(t_subopt_gap),
-                'train_subopt_max' : np.amax(t_subopt_gap),
-                'train_subopt_min' : np.amin(t_subopt_gap),
-                'train_subopt_gap' : np.mean(t_subopt_gap),
-                'train_subopt_max' : np.amax(t_subopt_gap),
-                'train_subopt_min' : np.amin(t_subopt_gap),
                 'train_primal_obj' : np.mean(t_primal_obj),
                 'train_primal_obj_max' : np.amax(t_primal_obj),
                 'train_primal_obj_min' : np.amin(t_primal_obj),
                 'train_gap' : np.mean(t_gap),
                 'train_gap_max' : np.amax(t_gap),
-                'train_gap_integral' : np.mean(t_gap_integral),
                 'train_gap_nzero' : (np.abs(np.asarray(t_gap)) <= 1e-08).sum(),
                 'train_gap_nnotzero' : (np.abs(np.asarray(t_gap)) > 1e-08).sum(),
                 'train_primal_integral' : np.mean(t_primal_integral),
@@ -373,8 +363,12 @@ if __name__ == '__main__':
                 'train_primal_integral_min' : np.amin(t_primal_integral),
                 'train_primal_integral_max' : np.amax(t_primal_integral),
                 'train_primal_integral_median' : np.median(t_primal_integral),
+                'train_primal_integral2' : np.mean(t_primal_integral2),
+                'train_primal_integral_ninf2' : np.isinf(t_primal_integral2).sum(),
+                'train_primal_integral_min2' : np.amin(t_primal_integral2),
+                'train_primal_integral_max2' : np.amax(t_primal_integral2),
+                'train_primal_integral_median2' : np.median(t_primal_integral2),
                 'train_num_lps_for_first_feasible' : np.mean(t_num_lps_for_first_feasible)              
-
             })
 
         # Send the stats to wandb
