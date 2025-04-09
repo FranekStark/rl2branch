@@ -4,7 +4,7 @@
     "entropy_bonus": 1e-5,
 
     "num_epochs": 200000,
-    "time_limit": 8.0,
+    "time_limit": 6.0,
     "num_episodes_per_epoch": 10,
     "num_nodes_per_epoch": 1000,
     "sample_rate": 0.25,
@@ -13,9 +13,9 @@
     "num_agents": 20,
     "episodes_preemption": 1,
 
-    "num_valid_instances": 50,
+    "num_valid_instances": 40,
     "num_valid_seeds": 5,
-    "validate_every": 40,
+    "validate_every": 50,
     "heuristics_during_training" : false,
     "heuristics_during_validation_on" : false,
     "heuristics_during_validation_off" : true,
