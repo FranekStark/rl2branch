@@ -140,7 +140,7 @@ class Agent(threading.Thread):
             ecole.observation.FocusNode(),
             ecole.observation.NodeBipartite()
             )
-        reward_function=ecole.reward.NNodes().cumsum()
+        reward_function=(DeltaNumLPs() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
         information_function= {
             'nnodes': ecole.reward.NNodes().cumsum(),
             'lpiters': ecole.reward.LpIterations().cumsum(),
@@ -151,6 +151,7 @@ class Agent(threading.Thread):
             'gap' : Gap(),
             'primal_integral': (DeltaNumLPs() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'primal_integral2': (ecole.reward.LpIterations() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
+            'primal_integral_time': (ecole.reward.SolvingTime() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'num_lps_for_first_feasible': BeforeFirstFesibleSol(DeltaNumLPs().cumsum())
         }
 
