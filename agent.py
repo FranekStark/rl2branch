@@ -140,7 +140,7 @@ class Agent(threading.Thread):
             ecole.observation.FocusNode(),
             ecole.observation.NodeBipartite()
             )
-        reward_function=(DeltaNumLPs() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
+        reward_function=(DeltaNumLPs() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum()
         information_function= {
             'nnodes': ecole.reward.NNodes().cumsum(),
             'lpiters': ecole.reward.LpIterations().cumsum(),
@@ -234,7 +234,7 @@ class Agent(threading.Thread):
                         transitions.append(transition)
 
                 observation, action_set, cum_nnodes, done, info = self.env.step(action)
-                #print(f"agent on {instance['path']} step info {info}")
+                print(f"agent on {instance['path']} step reward {cum_nnodes}")
                 iter_count += 1
                 if (iter_count>50000) and training: done=True # avoid too large trees during training for stability
 
