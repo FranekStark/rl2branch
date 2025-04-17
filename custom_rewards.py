@@ -120,7 +120,49 @@ class PrimalGapFunction():
     def __rmul__(self, value : float):
         return Arithmetic(lambda  x, y: y * x, [self, value], "({1} * {0})")
     
-    
+
+class ConfinedPrimalIntegral():
+    def __init__(self, primal_bound_lookup_fun, time_fun, time_limit, importance, *args, **kwargs):
+        self.primal_bound_lookup_fun = primal_bound_lookup_fun
+        self.time_fun = time_fun
+        self.alpha = time_limit / math.log(importance)
+        self.time_limit = time_limit
+
+    def before_reset(self, model : ecole.scip.Model):
+        self.primal_bound = self.primal_bound_lookup_fun(model.name)
+        self.last_primal_gap = 1.0
+        self.time_fun.before_reset(self, model)
+        self.last_time = self.time_fun.extract(model, False)
+        self.confined_primal_integral = 0
+        # TODO: add someting to detect if there is a fesible solution from before!
+
+    def extract(self, model : ecole.scip.Model, done : bool):
+        pysciopt_model = model.as_pyscipopt()
+        # First get primal gap
+        n_sols = len(pysciopt_model.getSols())
+        primal_gap = 1
+        if n_sols != 0:
+            best_sol = pysciopt_model.getBestSol()
+            primal_val =  pysciopt_model.getSolObjVal(best_sol)
+            if self.primal_bound == 0 and primal_val == 0:
+                primal_gap = 0
+            elif self.primal_bound * primal_val < 0:
+                primal_gap = 1
+            else:
+                primal_gap = abs(primal_val - self.primal_bound) / max(abs(primal_val), abs(self.primal_bound))
+        # Get time
+        time = self.time_fun.extract(model, done)
+        # Calculate increment:
+        self.confined_primal_integral += self.last_primal_gap * (math.exp(time / self.alpha) - math.exp(self.last_time / self.alpha))
+        # if done than extrapolate to the rest:
+        if done and time < self.time_limit:
+            self.confined_primal_integral += primal_gap * (math.exp(self.time_limit / self.alpha) - math.exp(time / self.alpha))
+
+        self.last_time = time
+        self.last_primal_gap = primal_gap
+        return self.alpha * self.confined_primal_integral
+        
+
 
 
 class BeforeFirstFesibleSol():

@@ -140,7 +140,7 @@ class Agent(threading.Thread):
             ecole.observation.FocusNode(),
             ecole.observation.NodeBipartite()
             )
-        reward_function=(DeltaNumLPs() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum()
+        reward_function=ConfinedPrimalIntegral(self.optimal_val_lookup_fun, ecole.reward.SolvingTime().cumsum(), self.time_limit, 0.5)
         information_function= {
             'nnodes': ecole.reward.NNodes().cumsum(),
             'lpiters': ecole.reward.LpIterations().cumsum(),
@@ -152,6 +152,7 @@ class Agent(threading.Thread):
             'primal_integral': (DeltaNumLPs() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'primal_integral2': (ecole.reward.LpIterations() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'primal_integral_time': (ecole.reward.SolvingTime() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
+            'confined_primal_integral': ConfinedPrimalIntegral(self.optimal_val_lookup_fun, ecole.reward.SolvingTime().cumsum(), self.time_limit, 0.5),
             'num_lps_for_first_feasible': BeforeFirstFesibleSol(DeltaNumLPs().cumsum())
         }
 
@@ -227,7 +228,7 @@ class Agent(threading.Thread):
 
                 # collect transition samples if requested
                 if sample_rate > 0:
-                    tree_recorder.record_branching_decision(focus_node_obs)
+                    tree_recorder.record_branching_decision(focus_node_obs, cum_nnodes)
                     keep_sample = rng.rand() < sample_rate
                     if keep_sample:
                         transition = utilities.Transition(state, action_idx, cum_nnodes)
@@ -253,9 +254,9 @@ class Agent(threading.Thread):
             # post-process the collected samples (credit assignment)
             if sample_rate > 0:
                 if self.mode in ['tmdp+ObjLim', 'tmdp+DFS']:
-                    subtree_sizes = tree_recorder.calculate_subtree_sizes()
+                    subtree_sizes = tree_recorder.calculate_subtree_lowest_child_loss()
                     for transition in transitions:
-                        transition.returns = -subtree_sizes[transition.node_id] - 1
+                        transition.returns = -subtree_sizes[transition.node_id]
                 else:
                     assert self.mode == 'mdp'
                     for transition in transitions:
@@ -283,12 +284,14 @@ class TreeRecorder:
         self.tree = {}
         self.depth_groups = []
 
-    def record_branching_decision(self, focus_node, lp_cand=True):
+    def record_branching_decision(self, focus_node, loss, lp_cand=True):
         id = focus_node.number
         # Tree
         self.tree[id] = {'parent': focus_node.parent_number,
                          'lowerbound': focus_node.lowerbound,
-                         'num_children': 2 if lp_cand else 3  }
+                         'num_children': 2 if lp_cand else 3,
+                         'loss': loss
+                             }
         # Add to corresponding depth group
         if len(self.depth_groups) > focus_node.depth:
             self.depth_groups[focus_node.depth].append(id)
@@ -303,6 +306,22 @@ class TreeRecorder:
                 subtree_sizes[id] += self.tree[id]['num_children']
                 if parent_id >= 0: subtree_sizes[parent_id] += subtree_sizes[id]
         return subtree_sizes
+    
+    def calculate_subtree_lowest_child_loss(self):
+        sub_tree_lowest_losses = {}
+        for group in self.depth_groups[::-1]:
+            for id in group:
+                parent_id = self.tree[id]['parent']
+                if id in sub_tree_lowest_losses: # Has to take the loss from below me
+                    loss = sub_tree_lowest_losses[id]
+                else: # Is a child node and has to take is loss
+                    loss = self.tree[id]['loss']
+                if parent_id >= 0:
+                    if parent_id not in sub_tree_lowest_losses:
+                        sub_tree_lowest_losses[parent_id] = loss
+                    elif sub_tree_lowest_losses[parent_id] > loss:
+                        sub_tree_lowest_losses[parent_id] = loss
+        
 
 
 class DFSBranchingDynamics(ecole.dynamics.BranchingDynamics):

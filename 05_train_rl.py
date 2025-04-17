@@ -268,6 +268,7 @@ if __name__ == '__main__':
             v_primal_integral = [s['info']['primal_integral'] for s in v_stats if s['heuristics'] == heur]
             v_primal_integral2 = [s['info']['primal_integral2'] for s in v_stats if s['heuristics'] == heur]
             v_num_lps_for_first_feasible = [s['info']['num_lps_for_first_feasible'] for s in v_stats if s['heuristics'] == heur]
+            v_confined_primal_integral = [s['info']['confined_primal_integral'] for s in v_stats if s['heuristics'] == heur]
 
             if(len(v_nnodess) == 0):
                 continue
@@ -303,6 +304,10 @@ if __name__ == '__main__':
                 f'valid{heur_str}_primal_integral_min2' : np.amin(v_primal_integral2),
                 f'valid{heur_str}_primal_integral_max2' : np.amax(v_primal_integral2),
                 f'valid{heur_str}_primal_integral_median2' : np.median(v_primal_integral2),
+                f'valid{heur_str}_confined_primal_integral' : np.mean(v_confined_primal_integral),
+                f'valid{heur_str}_confined_primal_integral_min' : np.amin(v_confined_primal_integral),
+                f'valid{heur_str}_confined_primal_integral_max' : np.amax(v_confined_primal_integral),
+                f'valid{heur_str}_confined_primal_integral_median' : np.median(v_confined_primal_integral),
                 f'valid{heur_str}_num_lps_for_first_feasible' : np.mean(v_num_lps_for_first_feasible)                
             })
             if epoch == 0:
@@ -336,6 +341,7 @@ if __name__ == '__main__':
             t_gap = [s['info']['gap'] for s in t_stats]
             t_primal_integral = [s['info']['primal_integral'] for s in t_stats]
             t_primal_integral2 = [s['info']['primal_integral2'] for s in t_stats]
+            t_confined_primal_integral = [s['info']['confined_primal_integral'] for s in t_stats]
             t_num_lps_for_first_feasible = [s['info']['num_lps_for_first_feasible'] for s in t_stats]
 
 
@@ -368,6 +374,10 @@ if __name__ == '__main__':
                 'train_primal_integral_min2' : np.amin(t_primal_integral2),
                 'train_primal_integral_max2' : np.amax(t_primal_integral2),
                 'train_primal_integral_median2' : np.median(t_primal_integral2),
+                f'train_confined_primal_integral' : np.mean(t_confined_primal_integral),
+                f'train_confined_primal_integral_min' : np.amin(t_confined_primal_integral),
+                f'train_confined_primal_integral_max' : np.amax(t_confined_primal_integral),
+                f'train_confined_primal_integral_median' : np.median(t_confined_primal_integral),
                 'train_num_lps_for_first_feasible' : np.mean(t_num_lps_for_first_feasible)              
             })
 
