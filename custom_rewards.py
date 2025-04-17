@@ -131,7 +131,7 @@ class ConfinedPrimalIntegral():
     def before_reset(self, model : ecole.scip.Model):
         self.primal_bound = self.primal_bound_lookup_fun(model.name)
         self.last_primal_gap = 1.0
-        self.time_fun.before_reset(self, model)
+        self.time_fun.before_reset(model)
         self.last_time = self.time_fun.extract(model, False)
         self.confined_primal_integral = 0
         # TODO: add someting to detect if there is a fesible solution from before!
