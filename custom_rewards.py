@@ -122,10 +122,13 @@ class PrimalGapFunction():
     
 
 class ConfinedPrimalIntegral():
-    def __init__(self, primal_bound_lookup_fun, time_fun, time_limit, importance, *args, **kwargs):
+    def __init__(self, primal_bound_lookup_fun, time_fun, time_limit, importance=None, alpha=None, *args, **kwargs):
         self.primal_bound_lookup_fun = primal_bound_lookup_fun
         self.time_fun = time_fun
-        self.alpha = time_limit / math.log(importance)
+        if alpha is not None:
+            self.alpha = alpha
+        else:
+            self.alpha = time_limit / math.log(importance)
         self.time_limit = time_limit
 
     def before_reset(self, model : ecole.scip.Model):
