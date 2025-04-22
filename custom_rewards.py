@@ -1,6 +1,7 @@
 import ecole.scip
 from ecole.reward import Arithmetic, Cumulative
 import math
+from pyscipopt import Model, Eventhdlr, SCIP_RESULT, SCIP_EVENTTYPE, SCIP_PARAMSETTING
 
 class PrimalObj():
     def __init__(self, *args, **kwargs):
@@ -119,51 +120,107 @@ class PrimalGapFunction():
 
     def __rmul__(self, value : float):
         return Arithmetic(lambda  x, y: y * x, [self, value], "({1} * {0})")
-    
+
+
+class IncubentEvent(Eventhdlr):
+    def __init__(self, callback):
+        self.n_sols = 0
+        self.callback = callback
+
+    def eventinit(self):
+        self.model.catchEvent(SCIP_EVENTTYPE.BESTSOLFOUND, self)
+
+    def eventexit(self):
+        self.model.dropEvent(SCIP_EVENTTYPE.BESTSOLFOUND, self)
+
+    def eventexec(self, event):
+        assert event.getType() == SCIP_EVENTTYPE.BESTSOLFOUND
+        self.callback(self.model)
+ 
+        
+
 
 class ConfinedPrimalIntegral():
-    def __init__(self, primal_bound_lookup_fun, time_fun, time_limit, importance=None, alpha=None, *args, **kwargs):
+    def __init__(self, primal_bound_lookup_fun, time_limit, importance=None, alpha=None, ret_self = False, *args, **kwargs):
         self.primal_bound_lookup_fun = primal_bound_lookup_fun
-        self.time_fun = time_fun
         if alpha is not None:
             self.alpha = alpha
         else:
+            assert importance is not None
             self.alpha = time_limit / math.log(importance)
         self.time_limit = time_limit
+        self.incubent_event_hdl = IncubentEvent(self.incubent_event)
+        self.ret_self = ret_self
 
     def before_reset(self, model : ecole.scip.Model):
         self.primal_bound = self.primal_bound_lookup_fun(model.name)
         self.last_primal_gap = 1.0
-        self.time_fun.before_reset(model)
-        self.last_time = self.time_fun.extract(model, False)
+        self.last_time = 0.0
         self.confined_primal_integral = 0
-        # TODO: add someting to detect if there is a fesible solution from before!
+        self.n_sols = 0
+        self.incubent_nodes = {}
+        self.incubent_nodes_by_parent = {}
+        model.as_pyscipopt().includeEventhdlr( self.incubent_event_hdl, "IncubentEvent", "python event handler to catch IncubentEvent")
 
-    def extract(self, model : ecole.scip.Model, done : bool):
-        pysciopt_model = model.as_pyscipopt()
-        # First get primal gap
-        n_sols = len(pysciopt_model.getSols())
+    def incubent_event(self, pysciopt_model):
+        self.n_sols += 1
+        assert len(pysciopt_model.getSols() == self.n_sols)
+        best_sol = pysciopt_model.getBestSol()
+        primal_val =  pysciopt_model.getSolObjVal(best_sol)
+        # get primal gap
         primal_gap = 1
-        if n_sols != 0:
-            best_sol = pysciopt_model.getBestSol()
-            primal_val =  pysciopt_model.getSolObjVal(best_sol)
-            if self.primal_bound == 0 and primal_val == 0:
-                primal_gap = 0
-            elif self.primal_bound * primal_val < 0:
-                primal_gap = 1
-            else:
-                primal_gap = abs(primal_val - self.primal_bound) / max(abs(primal_val), abs(self.primal_bound))
-        # Get time
-        time = self.time_fun.extract(model, done)
+        if self.primal_bound == 0 and primal_val == 0:
+            primal_gap = 0
+        elif self.primal_bound * primal_val < 0:
+            primal_gap = 1
+        else:
+            primal_gap = abs(primal_val - self.primal_bound) / max(abs(primal_val), abs(self.primal_bound))
+        # get time
+        time = pysciopt_model.getSolTime(best_sol)
         # Calculate increment:
         self.confined_primal_integral += self.last_primal_gap * (math.exp(time / self.alpha) - math.exp(self.last_time / self.alpha))
-        # if done than extrapolate to the rest:
-        if done and (self.time_limit is not None) and time < self.time_limit:
-            self.confined_primal_integral += primal_gap * (math.exp(self.time_limit / self.alpha) - math.exp(time / self.alpha))
 
         self.last_time = time
         self.last_primal_gap = primal_gap
-        return self.alpha * self.confined_primal_integral
+
+        # Also store this as an incubent node
+        node = pysciopt_model.getCurrentNode()
+        node_id = node.GetNumber()
+        parent_id = node.GetParent().GetNumber()
+        self.incubent_nodes[node_id] = {
+            'parent': parent_id,
+            'integral': self.alpha * (self.confined_primal_integral + self.last_primal_gap * (math.exp(self.time_limit / self.alpha) - math.exp(self.last_time / self.alpha)))
+        }
+        if parent_id in self.incubent_nodes_by_parent:
+            self.incubent_nodes_by_parent[parent_id].append(node_id)
+        else:
+            self.incubent_nodes_by_parent[parent_id] = [node_id]
+
+
+    def extract(self, model : ecole.scip.Model, done : bool):
+        assert self.n_sols == len(model.as_pyscipopt().getSols())
+
+        # if done than extrapolate to the rest:
+        if done and (self.time_limit is not None) and self.last_time  < self.time_limit:
+            self.confined_primal_integral += self.last_primal_gap * (math.exp(self.time_limit / self.alpha) - math.exp(self.last_time / self.alpha))
+            self.last_time = self.time_limit 
+
+        if self.ret_self:
+            return self
+        else:
+            return self.alpha * self.confined_primal_integral
+        
+    def get_value(self):
+            return self.alpha * self.confined_primal_integral
+    
+    def get_value_expanded(self):
+            return self.alpha * (self.confined_primal_integral + self.last_primal_gap * (math.exp(self.time_limit / self.alpha) - math.exp(self.last_time / self.alpha)))
+
+    
+
+    
+
+        
         
 
 

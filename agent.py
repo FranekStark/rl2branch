@@ -140,7 +140,7 @@ class Agent(threading.Thread):
             ecole.observation.FocusNode(),
             ecole.observation.NodeBipartite()
             )
-        reward_function=ConfinedPrimalIntegral(self.optimal_val_lookup_fun, ecole.reward.SolvingTime().cumsum(), self.time_limit, 0.5)
+        reward_function=ConfinedPrimalIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.5, ret_self=True)
         information_function= {
             'nnodes': ecole.reward.NNodes().cumsum(),
             'lpiters': ecole.reward.LpIterations().cumsum(),
@@ -152,8 +152,7 @@ class Agent(threading.Thread):
             'primal_integral': (DeltaNumLPs() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'primal_integral2': (ecole.reward.LpIterations() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'primal_integral_time': (ecole.reward.SolvingTime() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
-            'confined_primal_integral': ConfinedPrimalIntegral(self.optimal_val_lookup_fun, ecole.reward.SolvingTime().cumsum(), self.time_limit, 0.5),
-            'confined_primal_integral_iters': ConfinedPrimalIntegral(self.optimal_val_lookup_fun, ecole.reward.LpIterations().cumsum(), None, 0.5, alpha=(self.time_limit /math.log(0.5))),
+            'confined_primal_integral': ConfinedPrimalIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.5),
             'num_lps_for_first_feasible': BeforeFirstFesibleSol(DeltaNumLPs().cumsum())
         }
 
@@ -229,10 +228,10 @@ class Agent(threading.Thread):
 
                 # collect transition samples if requested
                 if sample_rate > 0:
-                    tree_recorder.record_branching_decision(focus_node_obs, cum_nnodes)
+                    tree_recorder.record_branching_decision(focus_node_obs, cum_nnodes.get_value_expanded())
                     keep_sample = rng.rand() < sample_rate
                     if keep_sample:
-                        transition = utilities.Transition(state, action_idx, cum_nnodes)
+                        transition = utilities.Transition(state, action_idx, cum_nnodes.get_value())
                         transitions.append(transition)
 
                 observation, action_set, cum_nnodes, done, info = self.env.step(action)
@@ -255,13 +254,13 @@ class Agent(threading.Thread):
             # post-process the collected samples (credit assignment)
             if sample_rate > 0:
                 if self.mode in ['tmdp+ObjLim', 'tmdp+DFS']:
-                    subtree_sizes = tree_recorder.calculate_subtree_lowest_child_loss()
+                    lowest_subtree_losses = tree_recorder.calculate_subtree_lowest_child_loss(cum_nnodes.incubent_nodes, cum_nnodes.incubent_nodes_by_parent)
                     for transition in transitions:
-                        transition.returns = -subtree_sizes[transition.node_id]
+                        transition.returns = -lowest_subtree_losses[transition.node_id] + tree_recorder.get_loss(transition.node_id)
                 else:
                     assert self.mode == 'mdp'
                     for transition in transitions:
-                        transition.returns = transition.cum_nnodes - cum_nnodes
+                        transition.returns = transition.cum_nnodes - cum_nnodes.get_value()
 
             # record episode samples and stats
             samples.extend(transitions)
@@ -308,7 +307,7 @@ class TreeRecorder:
                 if parent_id >= 0: subtree_sizes[parent_id] += subtree_sizes[id]
         return subtree_sizes
     
-    def calculate_subtree_lowest_child_loss(self):
+    def calculate_subtree_lowest_child_loss(self, incubent_nodes, incubent_nodes_by_parent):
         sub_tree_lowest_losses = {}
         for group in self.depth_groups[::-1]:
             for id in group:
@@ -316,13 +315,28 @@ class TreeRecorder:
                 if id in sub_tree_lowest_losses: # Has to take the loss from below me
                     loss = sub_tree_lowest_losses[id]
                 else: # Is a child node and has to take is loss
-                    loss = self.tree[id]['loss']
+                    loss = self.__get_lowest_leaf_loss(id, incubent_nodes, incubent_nodes_by_parent)
                 if parent_id >= 0:
                     if parent_id not in sub_tree_lowest_losses:
                         sub_tree_lowest_losses[parent_id] = loss
                     elif sub_tree_lowest_losses[parent_id] > loss:
                         sub_tree_lowest_losses[parent_id] = loss
-        
+
+    def get_loss(self, id):
+        return self.tree[id]['loss']
+    
+    def __get_lowest_leaf_loss(self, id, incubent_nodes, incubent_nodes_by_parent):
+        if id in incubent_nodes_by_parent:
+            if len(incubent_nodes_by_parent[id]) == 2:
+                loss_a = incubent_nodes[incubent_nodes_by_parent[id]][0]['integral']
+                loss_b = incubent_nodes[incubent_nodes_by_parent[id]][1]['integral']
+                return min(loss_a, loss_b)
+            else:
+                assert len(incubent_nodes_by_parent[id]) == 1
+                return incubent_nodes[incubent_nodes_by_parent[id]][0]['integral']
+        else:
+            return self.tree[id]['loss']
+
 
 
 class DFSBranchingDynamics(ecole.dynamics.BranchingDynamics):
