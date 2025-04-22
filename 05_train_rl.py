@@ -310,7 +310,7 @@ if __name__ == '__main__':
                 f'valid{heur_str}_confined_primal_integral_min' : np.amin(v_confined_primal_integral),
                 f'valid{heur_str}_confined_primal_integral_max' : np.amax(v_confined_primal_integral),
                 f'valid{heur_str}_confined_primal_integral_median' : np.median(v_confined_primal_integral),
-                f'valid{heur_str}_confined_primal_integral_iters' : np.mean(v_confined_primal_integral),
+                f'valid{heur_str}_confined_primal_integral_iters' : np.mean(v_confined_primal_integral_iters),
                 f'valid{heur_str}_num_lps_for_first_feasible' : np.mean(v_num_lps_for_first_feasible)                
             })
             if epoch == 0:
