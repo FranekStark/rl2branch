@@ -140,7 +140,7 @@ class Agent(threading.Thread):
             ecole.observation.FocusNode(),
             ecole.observation.NodeBipartite()
             )
-        reward_function=ConfinedPrimalIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.5, ret_self=True)
+        reward_function=ConfinedPrimalIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.5, ret_self=True, name='1')
         information_function= {
             'nnodes': ecole.reward.NNodes().cumsum(),
             'lpiters': ecole.reward.LpIterations().cumsum(),
@@ -152,7 +152,7 @@ class Agent(threading.Thread):
             'primal_integral': (DeltaNumLPs() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'primal_integral2': (ecole.reward.LpIterations() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'primal_integral_time': (ecole.reward.SolvingTime() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
-            'confined_primal_integral': ConfinedPrimalIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.5),
+            'confined_primal_integral': ConfinedPrimalIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.5, name='2'),
             'num_lps_for_first_feasible': BeforeFirstFesibleSol(DeltaNumLPs().cumsum())
         }
 

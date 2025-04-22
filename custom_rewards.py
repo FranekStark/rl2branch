@@ -141,7 +141,7 @@ class IncubentEvent(Eventhdlr):
 
 
 class ConfinedPrimalIntegral():
-    def __init__(self, primal_bound_lookup_fun, time_limit, importance=None, alpha=None, ret_self = False, *args, **kwargs):
+    def __init__(self, primal_bound_lookup_fun, time_limit, importance=None, alpha=None, ret_self = False, name = '',*args, **kwargs):
         self.primal_bound_lookup_fun = primal_bound_lookup_fun
         if alpha is not None:
             self.alpha = alpha
@@ -151,6 +151,7 @@ class ConfinedPrimalIntegral():
         self.time_limit = time_limit
         self.incubent_event_hdl = IncubentEvent(self.incubent_event)
         self.ret_self = ret_self
+        self.name = name
 
     def before_reset(self, model : ecole.scip.Model):
         self.primal_bound = self.primal_bound_lookup_fun(model.name)
@@ -160,7 +161,7 @@ class ConfinedPrimalIntegral():
         self.n_sols = 0
         self.incubent_nodes = {}
         self.incubent_nodes_by_parent = {}
-        model.as_pyscipopt().includeEventhdlr( self.incubent_event_hdl, "IncubentEvent", "python event handler to catch IncubentEvent")
+        model.as_pyscipopt().includeEventhdlr(self.incubent_event_hdl, f"IncubentEvent_{self.name}", "python event handler to catch IncubentEvent")
 
     def incubent_event(self, pysciopt_model):
         self.n_sols += 1
