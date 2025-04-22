@@ -153,6 +153,7 @@ class Agent(threading.Thread):
             'primal_integral2': (ecole.reward.LpIterations() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'primal_integral_time': (ecole.reward.SolvingTime() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'confined_primal_integral': ConfinedPrimalIntegral(self.optimal_val_lookup_fun, ecole.reward.SolvingTime().cumsum(), self.time_limit, 0.5),
+            'confined_primal_integral_iters': ConfinedPrimalIntegral(self.optimal_val_lookup_fun, ecole.reward.LpIterations().cumsum(), None, 0.5),
             'num_lps_for_first_feasible': BeforeFirstFesibleSol(DeltaNumLPs().cumsum())
         }
 

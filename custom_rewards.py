@@ -155,7 +155,7 @@ class ConfinedPrimalIntegral():
         # Calculate increment:
         self.confined_primal_integral += self.last_primal_gap * (math.exp(time / self.alpha) - math.exp(self.last_time / self.alpha))
         # if done than extrapolate to the rest:
-        if done and time < self.time_limit:
+        if done and (self.time_limit is not None) and time < self.time_limit:
             self.confined_primal_integral += primal_gap * (math.exp(self.time_limit / self.alpha) - math.exp(time / self.alpha))
 
         self.last_time = time

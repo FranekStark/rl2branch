@@ -5,9 +5,9 @@
 
     "num_epochs": 20000000,
     "time_limit": 1.0,
-    "num_episodes_per_epoch": 10,
+    "num_episodes_per_epoch": 150,
     "num_nodes_per_epoch": 1000,
-    "sample_rate": 0.25,
+    "sample_rate": 0.5,
 
     "batch_size": 32,
     "num_agents": 20,
