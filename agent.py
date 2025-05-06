@@ -3,7 +3,6 @@ import threading
 import queue
 
 import ecole.reward
-import ecole.reward
 import utilities
 import numpy as np
 from collections import namedtuple
@@ -135,12 +134,14 @@ class Agent(threading.Thread):
         # Setup Ecole environment
         scip_params={'separating/maxrounds': 0,
                      'presolving/maxrestarts': 0,
-                     'timing/clocktype': 2}
+                     'timing/clocktype': 2,
+                     'display/verblevel': 5
+                     }
         observation_function=(
             ecole.observation.FocusNode(),
             ecole.observation.NodeBipartite()
             )
-        reward_function=ConfinedPrimalIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.5, ret_self=True, name='1')
+        reward_function=ecole.reward.ConfinedPrimalGapIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.5, name='1')
         information_function= {
             'nnodes': ecole.reward.NNodes().cumsum(),
             'lpiters': ecole.reward.LpIterations().cumsum(),
@@ -152,7 +153,7 @@ class Agent(threading.Thread):
             'primal_integral': (DeltaNumLPs() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'primal_integral2': (ecole.reward.LpIterations() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'primal_integral_time': (ecole.reward.SolvingTime() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
-            'confined_primal_integral': ConfinedPrimalIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.5, name='2'),
+            'confined_primal_integral': ecole.reward.ConfinedPrimalGapIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.5, name='2'),
             'num_lps_for_first_feasible': BeforeFirstFesibleSol(DeltaNumLPs().cumsum())
         }
 
@@ -205,12 +206,13 @@ class Agent(threading.Thread):
             rng = np.random.RandomState(seed)
             if sample_rate > 0:
                 tree_recorder = TreeRecorder()
-
+            
+            print("before spiode reset")
             # Run episode
             observation, action_set, cum_nnodes, done, info = self.env.reset(instance = instance['path'],
                                                                              primal_bound=instance.get('sol', None),
                                                                              training=training, heuristics=heuristics, time_limit=self.time_limit)
-            #print(f"agent on {instance['path']} reset info {info}")
+            print(f"agent on {instance['path']} reset info {info}")
 
             policy_access.wait()
             iter_count = 0
@@ -269,6 +271,7 @@ class Agent(threading.Thread):
             # tell both the agent pool and the original task sponsor that the task is done
             job_sponsor.task_done()
             self.jobs_queue.task_done()
+            input("press enter")
 
 
 class TreeRecorder:
@@ -409,7 +412,7 @@ class MDPBranchingDynamics(ecole.dynamics.BranchingDynamics):
             pyscipopt_model.setParam(f"limits/time", time_limit)
         else:
             pyscipopt_model.setParam(f"limits/time", time_limit)
-        
+
         return super().reset_dynamics(model, *args, **kwargs)
     
 
