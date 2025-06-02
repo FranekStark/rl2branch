@@ -264,9 +264,8 @@ if __name__ == '__main__':
             v_num_lps = [s['info']['num_lps'] for s in v_stats if s['heuristics'] == heur]
             v_times = [s['info']['time'] for s in v_stats if s['heuristics'] == heur]
             v_primal_obj = [s['info']['primal_obj'] for s in v_stats if s['heuristics'] == heur]
-            v_gap = [s['info']['gap'] for s in v_stats if s['heuristics'] == heur]
-            v_primal_integral = [s['info']['primal_integral'] for s in v_stats if s['heuristics'] == heur]
-            v_primal_integral2 = [s['info']['primal_integral2'] for s in v_stats if s['heuristics'] == heur]
+            v_primal_integral_lpiters = [s['info']['primal_integral_lpiters'] for s in v_stats if s['heuristics'] == heur]
+            v_primal_integral_time = [s['info']['primal_integral_time'] for s in v_stats if s['heuristics'] == heur]
             v_num_lps_for_first_feasible = [s['info']['num_lps_for_first_feasible'] for s in v_stats if s['heuristics'] == heur]
             v_confined_primal_integral = [s['info']['confined_primal_integral'] for s in v_stats if s['heuristics'] == heur]
 
@@ -290,21 +289,14 @@ if __name__ == '__main__':
                 f'valid{heur_str}_primal_obj_min' : np.amin(v_primal_obj),
                 f'valid{heur_str}_primal_obj_ninf' : np.isinf(v_primal_obj).sum(),
                 f'valid{heur_str}_primal_obj_median' : np.median(v_primal_obj),
-                f'valid{heur_str}_gap' : np.mean(v_gap),
-                f'valid{heur_str}_gap_median' : np.median(v_gap),
-                f'valid{heur_str}_gap_ninf' : np.isinf(v_gap).sum(),
-                f'valid{heur_str}_gap_nzero' : (np.abs(np.asarray(v_gap)) <= 1e-08).sum(),
-                f'valid{heur_str}_gap_nnotzero' : (np.abs(np.asarray(v_gap)) > 1e-08).sum(),
-                f'valid{heur_str}_gap_max' : np.amax(v_gap),
-                f'valid{heur_str}_gap_min' : np.amin(v_gap),
-                f'valid{heur_str}_primal_integral' : np.mean(v_primal_integral),
-                f'valid{heur_str}_primal_integral_min' : np.amin(v_primal_integral),
-                f'valid{heur_str}_primal_integral_max' : np.amax(v_primal_integral),
-                f'valid{heur_str}_primal_integral_median' : np.median(v_primal_integral),
-                f'valid{heur_str}_primal_integral2' : np.mean(v_primal_integral2),
-                f'valid{heur_str}_primal_integral_min2' : np.amin(v_primal_integral2),
-                f'valid{heur_str}_primal_integral_max2' : np.amax(v_primal_integral2),
-                f'valid{heur_str}_primal_integral_median2' : np.median(v_primal_integral2),
+                f'valid{heur_str}_primal_integral_lpiters' : np.mean(v_primal_integral_lpiters),
+                f'valid{heur_str}_primal_integral_lpiters_min' : np.amin(v_primal_integral_lpiters),
+                f'valid{heur_str}_primal_integral_lpiters_max' : np.amax(v_primal_integral_lpiters),
+                f'valid{heur_str}_primal_integral_lpiters_median' : np.median(v_primal_integral_time),
+                f'valid{heur_str}_primal_integral_time' : np.mean(v_primal_integral_time),
+                f'valid{heur_str}_primal_integral_time_min' : np.amin(v_primal_integral_time),
+                f'valid{heur_str}_primal_integral_time_max' : np.amax(v_primal_integral_time),
+                f'valid{heur_str}_primal_integral_time_median' : np.median(v_primal_integral_time),
                 f'valid{heur_str}_confined_primal_integral' : np.mean(v_confined_primal_integral),
                 f'valid{heur_str}_confined_primal_integral_min' : np.amin(v_confined_primal_integral),
                 f'valid{heur_str}_confined_primal_integral_max' : np.amax(v_confined_primal_integral),
@@ -339,9 +331,8 @@ if __name__ == '__main__':
             t_num_lps = [s['info']['num_lps'] for s in t_stats]
             t_times = [s['info']['time'] for s in t_stats]
             t_primal_obj = [s['info']['primal_obj'] for s in t_stats]
-            t_gap = [s['info']['gap'] for s in t_stats]
-            t_primal_integral = [s['info']['primal_integral'] for s in t_stats]
-            t_primal_integral2 = [s['info']['primal_integral2'] for s in t_stats]
+            t_primal_integral_lpiters = [s['info']['primal_integral_lpiters'] for s in t_stats]
+            t_primal_integral_time = [s['info']['primal_integral_time'] for s in t_stats]
             t_confined_primal_integral = [s['info']['confined_primal_integral'] for s in t_stats]
             t_num_lps_for_first_feasible = [s['info']['num_lps_for_first_feasible'] for s in t_stats]
 
@@ -361,20 +352,16 @@ if __name__ == '__main__':
                 'train_primal_obj' : np.mean(t_primal_obj),
                 'train_primal_obj_max' : np.amax(t_primal_obj),
                 'train_primal_obj_min' : np.amin(t_primal_obj),
-                'train_gap' : np.mean(t_gap),
-                'train_gap_max' : np.amax(t_gap),
-                'train_gap_nzero' : (np.abs(np.asarray(t_gap)) <= 1e-08).sum(),
-                'train_gap_nnotzero' : (np.abs(np.asarray(t_gap)) > 1e-08).sum(),
-                'train_primal_integral' : np.mean(t_primal_integral),
-                'train_primal_integral_ninf' : np.isinf(t_primal_integral).sum(),
-                'train_primal_integral_min' : np.amin(t_primal_integral),
-                'train_primal_integral_max' : np.amax(t_primal_integral),
-                'train_primal_integral_median' : np.median(t_primal_integral),
-                'train_primal_integral2' : np.mean(t_primal_integral2),
-                'train_primal_integral_ninf2' : np.isinf(t_primal_integral2).sum(),
-                'train_primal_integral_min2' : np.amin(t_primal_integral2),
-                'train_primal_integral_max2' : np.amax(t_primal_integral2),
-                'train_primal_integral_median2' : np.median(t_primal_integral2),
+                'train_primal_integral_lpiters' : np.mean(t_primal_integral_lpiters),
+                'train_primal_integral_lpiters_ninf' : np.isinf(t_primal_integral_lpiters).sum(),
+                'train_primal_integral_lpiters_min' : np.amin(t_primal_integral_lpiters),
+                'train_primal_integral_lpiters_max' : np.amax(t_primal_integral_lpiters),
+                'train_primal_integral_lpiters_median' : np.median(t_primal_integral_lpiters),
+                'train_primal_integral_time' : np.mean(t_primal_integral_time),
+                'train_primal_integral_time_ninf' : np.isinf(t_primal_integral_time).sum(),
+                'train_primal_integral_time_min' : np.amin(t_primal_integral_time),
+                'train_primal_integral_time_max' : np.amax(t_primal_integral_time),
+                'train_primal_integral_time_median' : np.median(t_primal_integral_time),
                 f'train_confined_primal_integral' : np.mean(t_confined_primal_integral),
                 f'train_confined_primal_integral_min' : np.amin(t_confined_primal_integral),
                 f'train_confined_primal_integral_max' : np.amax(t_confined_primal_integral),

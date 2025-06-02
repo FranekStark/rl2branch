@@ -2,6 +2,7 @@ import ecole
 import threading
 import queue
 
+import ecole.observation
 import ecole.reward
 import utilities
 import numpy as np
@@ -139,7 +140,8 @@ class Agent(threading.Thread):
                      }
         observation_function=(
             ecole.observation.FocusNode(),
-            ecole.observation.NodeBipartite()
+            ecole.observation.NodeBipartite(),
+            ecole.observation.TreeRecorder()
             )
         reward_function=ecole.reward.ConfinedPrimalGapIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.5, name='1')
         information_function= {
@@ -149,12 +151,11 @@ class Agent(threading.Thread):
             'time': ecole.reward.SolvingTime().cumsum(),
             'primal_obj': PrimalObj(),
             'primal_gap': PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun),
-            'gap' : Gap(),
-            'primal_integral': (DeltaNumLPs() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
-            'primal_integral2': (ecole.reward.LpIterations() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
+            'primal_integral_lpiters': (ecole.reward.LpIterations() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'primal_integral_time': (ecole.reward.SolvingTime() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'confined_primal_integral': ecole.reward.ConfinedPrimalGapIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.5, name='2'),
-            'num_lps_for_first_feasible': BeforeFirstFesibleSol(DeltaNumLPs().cumsum())
+            'num_lps_for_first_feasible': BeforeFirstFesibleSol(DeltaNumLPs().cumsum()),
+            'sub_optimality': ecole.reward.SubOptimality(0.1, self.optimal_val_lookup_fun)
         }
 
         
@@ -204,21 +205,21 @@ class Agent(threading.Thread):
             transitions = []
             self.env.seed(seed)
             rng = np.random.RandomState(seed)
-            if sample_rate > 0:
-                tree_recorder = TreeRecorder()
+            #if sample_rate > 0:
+            #    tree_recorder = TreeRecorder()
             
-            print("before spiode reset")
+            #print("before spiode reset")
             # Run episode
-            observation, action_set, cum_nnodes, done, info = self.env.reset(instance = instance['path'],
+            observation, action_set, reward, done, info = self.env.reset(instance = instance['path'],
                                                                              primal_bound=instance.get('sol', None),
                                                                              training=training, heuristics=heuristics, time_limit=self.time_limit)
-            print(f"agent on {instance['path']} reset info {info}")
+            #print(f"agent on {instance['path']} reset info {info}")
 
             policy_access.wait()
             iter_count = 0
             nan_found = False
             while not done:
-                focus_node_obs, node_bipartite_obs = observation
+                focus_node_obs, node_bipartite_obs, tree_record = observation
                                     
                 state = utilities.extract_state(node_bipartite_obs, action_set, focus_node_obs.number)
 
@@ -230,18 +231,18 @@ class Agent(threading.Thread):
 
                 # collect transition samples if requested
                 if sample_rate > 0:
-                    tree_recorder.record_branching_decision(focus_node_obs, cum_nnodes.get_value_expanded())
+                    #tree_recorder.record_branching_decision(focus_node_obs, reward)
                     keep_sample = rng.rand() < sample_rate
                     if keep_sample:
-                        transition = utilities.Transition(state, action_idx, cum_nnodes.get_value())
+                        transition = utilities.Transition(state, action_idx, reward, tree_record)
                         transitions.append(transition)
 
-                observation, action_set, cum_nnodes, done, info = self.env.step(action)
+                observation, action_set, reward, done, info = self.env.step(action)
                 #print(f"agent on {instance['path']} step reward {cum_nnodes}")
                 iter_count += 1
                 if (iter_count>50000) and training: done=True # avoid too large trees during training for stability
 
-            print(f"agent on {instance['path']} finished after {iter_count} iters, primal_integral at {info['primal_integral']}, primal_gap at {info['primal_gap']}. Num transitions recorded: {len(transitions)} - heuristics {heuristics}")
+            print(f"agent on {instance['path']} finished after {iter_count} iters, primal_integral at {info['primal_integral_lpiters']}, primal_gap at {info['primal_gap']}. Num transitions recorded: {len(transitions)} - heuristics {heuristics}")
 
             if nan_found:
                 job_sponsor.task_done()
@@ -256,13 +257,12 @@ class Agent(threading.Thread):
             # post-process the collected samples (credit assignment)
             if sample_rate > 0:
                 if self.mode in ['tmdp+ObjLim', 'tmdp+DFS']:
-                    lowest_subtree_losses = tree_recorder.calculate_subtree_lowest_child_loss(cum_nnodes.incubent_nodes, cum_nnodes.incubent_nodes_by_parent)
                     for transition in transitions:
-                        transition.returns = -lowest_subtree_losses[transition.node_id] + tree_recorder.get_loss(transition.node_id)
+                        transition.returns = -transition.tree_record.get_sub_tree_confined_primal_gap_integral(instance.get('sol', None), self.time_limit, 0.5, True)
                 else:
                     assert self.mode == 'mdp'
                     for transition in transitions:
-                        transition.returns = transition.cum_nnodes - cum_nnodes.get_value()
+                        transition.returns = transition.cum_nnodes - reward
 
             # record episode samples and stats
             samples.extend(transitions)
@@ -271,7 +271,7 @@ class Agent(threading.Thread):
             # tell both the agent pool and the original task sponsor that the task is done
             job_sponsor.task_done()
             self.jobs_queue.task_done()
-            input("press enter")
+            #input("press enter")
 
 
 class TreeRecorder:
