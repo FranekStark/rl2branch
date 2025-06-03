@@ -268,6 +268,7 @@ if __name__ == '__main__':
             v_primal_integral_time = [s['info']['primal_integral_time'] for s in v_stats if s['heuristics'] == heur]
             v_num_lps_for_first_feasible = [s['info']['num_lps_for_first_feasible'] for s in v_stats if s['heuristics'] == heur]
             v_confined_primal_integral = [s['info']['confined_primal_integral'] for s in v_stats if s['heuristics'] == heur]
+            v_sub_optimality = [s['info']['sub_optimality'] for s in v_stats if s['heuristics'] == heur]
 
 
             if(len(v_nnodess) == 0):
@@ -301,7 +302,12 @@ if __name__ == '__main__':
                 f'valid{heur_str}_confined_primal_integral_min' : np.amin(v_confined_primal_integral),
                 f'valid{heur_str}_confined_primal_integral_max' : np.amax(v_confined_primal_integral),
                 f'valid{heur_str}_confined_primal_integral_median' : np.median(v_confined_primal_integral),
-                f'valid{heur_str}_num_lps_for_first_feasible' : np.mean(v_num_lps_for_first_feasible)                
+                f'valid{heur_str}_num_lps_for_first_feasible' : np.mean(v_num_lps_for_first_feasible),
+                f'valid{heur_str}_sub_optimality' : np.mean(v_sub_optimality),
+                f'valid{heur_str}_sub_optimality_median' : np.median(v_sub_optimality),
+                f'valid{heur_str}_sub_optimality_max' : np.max(v_sub_optimality),
+                f'valid{heur_str}_sub_optimality_min' : np.min(v_sub_optimality),
+
             })
             if epoch == 0:
                 v_nnodes_0 = wandb_data[f'valid{heur_str}_nnodes'] if wandb_data[f'valid{heur_str}_nnodes'] != 0 else 1
@@ -335,6 +341,7 @@ if __name__ == '__main__':
             t_primal_integral_time = [s['info']['primal_integral_time'] for s in t_stats]
             t_confined_primal_integral = [s['info']['confined_primal_integral'] for s in t_stats]
             t_num_lps_for_first_feasible = [s['info']['num_lps_for_first_feasible'] for s in t_stats]
+            t_sub_optimality = [s['info']['sub_optimality'] for s in t_stats]
 
 
             wandb_data.update({
@@ -366,7 +373,8 @@ if __name__ == '__main__':
                 f'train_confined_primal_integral_min' : np.amin(t_confined_primal_integral),
                 f'train_confined_primal_integral_max' : np.amax(t_confined_primal_integral),
                 f'train_confined_primal_integral_median' : np.median(t_confined_primal_integral),
-                'train_num_lps_for_first_feasible' : np.mean(t_num_lps_for_first_feasible)              
+                'train_num_lps_for_first_feasible' : np.mean(t_num_lps_for_first_feasible),
+                'train_sub_optimality' : np.mean(t_sub_optimality)             
             })
 
         # Send the stats to wandb
