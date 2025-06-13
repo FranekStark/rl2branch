@@ -268,8 +268,6 @@ if __name__ == '__main__':
             v_primal_integral_time = [s['info']['primal_integral_time'] for s in v_stats if s['heuristics'] == heur]
             v_num_lps_for_first_feasible = [s['info']['num_lps_for_first_feasible'] for s in v_stats if s['heuristics'] == heur]
             v_confined_primal_integral = [s['info']['confined_primal_integral'] for s in v_stats if s['heuristics'] == heur]
-            v_sub_optimality = [s['info']['sub_optimality'] for s in v_stats if s['heuristics'] == heur]
-
 
             if(len(v_nnodess) == 0):
                 continue
@@ -342,8 +340,6 @@ if __name__ == '__main__':
             t_primal_integral_time = [s['info']['primal_integral_time'] for s in t_stats]
             t_confined_primal_integral = [s['info']['confined_primal_integral'] for s in t_stats]
             t_num_lps_for_first_feasible = [s['info']['num_lps_for_first_feasible'] for s in t_stats]
-            t_sub_optimality = [s['info']['sub_optimality'] for s in t_stats]
-
 
             wandb_data.update({
                 'train_nnodes_g': gmean(t_nnodess),
