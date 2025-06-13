@@ -1,0 +1,40 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Current File with Arguments",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "05_train_rl.py",
+            "console": "integratedTerminal",
+            "args": "mimpc tmdp+ObjLim"
+        },
+        {
+            "name": "Debug Python with GDB",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/usr/bin/python3.8",
+            "args": ["05_train_rl.py", "mimpc", "tmdp+ObjLim"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "setupCommands": [
+              { "description": "Enable pretty-printing", "text": "-enable-pretty-printing", "ignoreFailures": true }
+            ],
+            "environment": [
+                {
+                  "name": "PYTHONPATH",
+                  "value": "/opt/rl2branch_venv/lib/python3.8/site-packages"
+                }
+              ],
+              
+          }
+
+        
+    ]
+}

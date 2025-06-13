@@ -4,10 +4,10 @@
     "entropy_bonus": 1e-5,
 
     "num_epochs": 20000000,
-    "time_limit": 1.0,
-    "num_episodes_per_epoch": 150,
+    "time_limit": 2.0,
+    "num_episodes_per_epoch": 10,
     "num_nodes_per_epoch": 1000,
-    "sample_rate": 0.5,
+    "sample_rate": 1.0,
 
     "batch_size": 32,
     "num_agents": 20,

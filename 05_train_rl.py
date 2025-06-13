@@ -303,12 +303,13 @@ if __name__ == '__main__':
                 f'valid{heur_str}_confined_primal_integral_max' : np.amax(v_confined_primal_integral),
                 f'valid{heur_str}_confined_primal_integral_median' : np.median(v_confined_primal_integral),
                 f'valid{heur_str}_num_lps_for_first_feasible' : np.mean(v_num_lps_for_first_feasible),
-                f'valid{heur_str}_sub_optimality' : np.mean(v_sub_optimality),
-                f'valid{heur_str}_sub_optimality_median' : np.median(v_sub_optimality),
-                f'valid{heur_str}_sub_optimality_max' : np.max(v_sub_optimality),
-                f'valid{heur_str}_sub_optimality_min' : np.min(v_sub_optimality),
-
+                f'valid{heur_str}_sub_optimality_0.01' : np.mean([s['info'][f'sub_optimality_0.01'] for s in v_stats if s['heuristics'] == heur]),
+                f'valid{heur_str}_sub_optimality_0.1' : np.mean([s['info'][f'sub_optimality_0.1'] for s in v_stats if s['heuristics'] == heur]),
+                f'valid{heur_str}_sub_optimality_0.2' : np.mean([s['info'][f'sub_optimality_0.2'] for s in v_stats if s['heuristics'] == heur]),
+                f'valid{heur_str}_sub_optimality_0.5' : np.mean([s['info'][f'sub_optimality_0.5'] for s in v_stats if s['heuristics'] == heur]),
+                f'valid{heur_str}_sub_optimality_1.0' : np.mean([s['info'][f'sub_optimality_1.0'] for s in v_stats if s['heuristics'] == heur])
             })
+
             if epoch == 0:
                 v_nnodes_0 = wandb_data[f'valid{heur_str}_nnodes'] if wandb_data[f'valid{heur_str}_nnodes'] != 0 else 1
                 v_nnodes_g_0 = wandb_data[f'valid{heur_str}_nnodes_g'] if wandb_data[f'valid{heur_str}_nnodes_g']!= 0 else 1
@@ -374,7 +375,11 @@ if __name__ == '__main__':
                 f'train_confined_primal_integral_max' : np.amax(t_confined_primal_integral),
                 f'train_confined_primal_integral_median' : np.median(t_confined_primal_integral),
                 'train_num_lps_for_first_feasible' : np.mean(t_num_lps_for_first_feasible),
-                'train_sub_optimality' : np.mean(t_sub_optimality)             
+                f'train{heur_str}_sub_optimality_0.01' : np.mean([s['info'][f'sub_optimality_0.01'] for s in t_stats]),
+                f'train{heur_str}_sub_optimality_0.1' : np.mean([s['info'][f'sub_optimality_0.1'] for s in t_stats]),
+                f'train{heur_str}_sub_optimality_0.2' : np.mean([s['info'][f'sub_optimality_0.2'] for s in t_stats]),
+                f'train{heur_str}_sub_optimality_0.5' : np.mean([s['info'][f'sub_optimality_0.5'] for s in t_stats]),
+                f'train{heur_str}_sub_optimality_1.0' : np.mean([s['info'][f'sub_optimality_1.0'] for s in t_stats])          
             })
 
         # Send the stats to wandb

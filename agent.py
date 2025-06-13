@@ -143,7 +143,7 @@ class Agent(threading.Thread):
             ecole.observation.NodeBipartite(),
             ecole.observation.TreeRecorder()
             )
-        reward_function=ecole.reward.ConfinedPrimalGapIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.5, name='1')
+        reward_function=ecole.reward.ConfinedPrimalGapIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.8, name='1')
         information_function= {
             'nnodes': ecole.reward.NNodes().cumsum(),
             'lpiters': ecole.reward.LpIterations().cumsum(),
@@ -153,9 +153,14 @@ class Agent(threading.Thread):
             'primal_gap': PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun),
             'primal_integral_lpiters': (ecole.reward.LpIterations() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'primal_integral_time': (ecole.reward.SolvingTime() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
-            'confined_primal_integral': ecole.reward.ConfinedPrimalGapIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.5, name='2'),
+            'confined_primal_integral': ecole.reward.ConfinedPrimalGapIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.8, name='2'),
             'num_lps_for_first_feasible': BeforeFirstFesibleSol(DeltaNumLPs().cumsum()),
-            'sub_optimality': ecole.reward.SubOptimality(0.1, self.optimal_val_lookup_fun)
+            'sub_optimality_0.01': ecole.reward.SubOptimality(0.01, self.optimal_val_lookup_fun),
+            'sub_optimality_0.1': ecole.reward.SubOptimality(0.1, self.optimal_val_lookup_fun),
+            'sub_optimality_0.2': ecole.reward.SubOptimality(0.2, self.optimal_val_lookup_fun),
+            'sub_optimality_0.5': ecole.reward.SubOptimality(0.5, self.optimal_val_lookup_fun),
+            'sub_optimality_1.0': ecole.reward.SubOptimality(1.0, self.optimal_val_lookup_fun),
+            
         }
 
         
@@ -258,7 +263,7 @@ class Agent(threading.Thread):
             if sample_rate > 0:
                 if self.mode in ['tmdp+ObjLim', 'tmdp+DFS']:
                     for transition in transitions:
-                        transition.returns = -transition.tree_record.get_sub_tree_confined_primal_gap_integral(instance.get('sol', None), self.time_limit, 0.5, True)
+                        transition.returns = -transition.tree_record.get_sub_tree_confined_primal_gap_integral(instance.get('sol', None), self.time_limit, 0.8, True)
                 else:
                     assert self.mode == 'mdp'
                     for transition in transitions:
