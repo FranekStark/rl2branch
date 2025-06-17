@@ -306,7 +306,7 @@ if __name__ == '__main__':
                 'train_nnodes_g': gmean(t_nnodess),          
             })
             for key in t_stats[0]['info']:
-                data = [s['info'][key] for s in t_stats if s['heuristics'] == heur]
+                data = [s['info'][key] for s in t_stats]
                 if(len(data) == 0):
                     continue
                 wandb_data.update({f'train_{key}' : np.mean(data),
