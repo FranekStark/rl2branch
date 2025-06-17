@@ -119,7 +119,8 @@ class PrimalGapFunction():
                 return abs(primal_val - self.primal_bound) / max(abs(primal_val), abs(self.primal_bound))
 
     def __rmul__(self, value : float):
-        return Arithmetic(lambda  x, y: y * x, [self, value], "({1} * {0})")   
+        return Arithmetic(lambda  x, y: y * x, [self, value], "({1} * {0})")
+   
         
 
 class BeforeFirstFesibleSol():

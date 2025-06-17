@@ -1,10 +1,10 @@
 {
-    "lr": 1e-6,
+    "lr": 1e-3,
 
-    "entropy_bonus": 1e-5,
+    "entropy_bonus": 0.001,
 
     "num_epochs": 20000000,
-    "time_limit": 2.0,
+    "time_limit": 0.1,
     "num_episodes_per_epoch": 10,
     "num_nodes_per_epoch": 1000,
     "sample_rate": 1.0,
@@ -13,11 +13,12 @@
     "num_agents": 20,
     "episodes_preemption": 1,
 
-    "num_valid_instances": 200,
+    "num_valid_instances": 10,
     "num_valid_seeds": 5,
+    "num_train_instances": 50,
     "validate_every": 50,
-    "heuristics_during_training" : false,
-    "heuristics_during_validation_on" : false,
+    "heuristics_during_training" : true,
+    "heuristics_during_validation_on" : true,
     "heuristics_during_validation_off" : true,
     "gpu": 0,
     "seed": 0

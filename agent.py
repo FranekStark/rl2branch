@@ -143,7 +143,7 @@ class Agent(threading.Thread):
             ecole.observation.NodeBipartite(),
             ecole.observation.TreeRecorder()
             )
-        reward_function=ecole.reward.ConfinedPrimalGapIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.8, name='1')
+        reward_function=PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)
         information_function= {
             'nnodes': ecole.reward.NNodes().cumsum(),
             'lpiters': ecole.reward.LpIterations().cumsum(),
@@ -153,11 +153,15 @@ class Agent(threading.Thread):
             'primal_gap': PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun),
             'primal_integral_lpiters': (ecole.reward.LpIterations() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
             'primal_integral_time': (ecole.reward.SolvingTime() * PrimalGapFunction(primal_bound_lookup_fun=self.optimal_val_lookup_fun)).cumsum(),
-            'confined_primal_integral': ecole.reward.ConfinedPrimalGapIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.8, name='2'),
+            'confined_primal_integral': ecole.reward.ConfinedPrimalGapIntegral(self.optimal_val_lookup_fun, self.time_limit, importance=0.0001, name='1'),
             'num_lps_for_first_feasible': BeforeFirstFesibleSol(DeltaNumLPs().cumsum()),
             'sub_optimality_0.01': ecole.reward.SubOptimality(0.01, self.optimal_val_lookup_fun),
+            'sub_optimality_0.05': ecole.reward.SubOptimality(0.01, self.optimal_val_lookup_fun),
             'sub_optimality_0.1': ecole.reward.SubOptimality(0.1, self.optimal_val_lookup_fun),
+            'sub_optimality_0.5': ecole.reward.SubOptimality(0.1, self.optimal_val_lookup_fun),
             'sub_optimality_0.2': ecole.reward.SubOptimality(0.2, self.optimal_val_lookup_fun),
+            'sub_optimality_0.3': ecole.reward.SubOptimality(0.2, self.optimal_val_lookup_fun),
+            'sub_optimality_0.4': ecole.reward.SubOptimality(0.2, self.optimal_val_lookup_fun),
             'sub_optimality_0.5': ecole.reward.SubOptimality(0.5, self.optimal_val_lookup_fun),
             'sub_optimality_1.0': ecole.reward.SubOptimality(1.0, self.optimal_val_lookup_fun),
             
@@ -267,8 +271,17 @@ class Agent(threading.Thread):
                 else:
                     assert self.mode == 'mdp'
                     for transition in transitions:
-                        transition.returns = transition.cum_nnodes - reward
+                        gap_improvement = transition.cum_nnodes - reward  #"reward <= transition.cum_nnodes "
 
+                        if gap_improvement <= np.finfo(float).eps:
+                            transition.returns = -1
+                        else:
+                            transition.returns = gap_improvement
+
+
+                
+
+            
             # record episode samples and stats
             samples.extend(transitions)
             stats.append({'order': task, 'info': info, 'heuristics': heuristics})

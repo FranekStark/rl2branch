@@ -150,7 +150,8 @@ if __name__ == '__main__':
 
     # recover training / validation instances
     valid_instances = [f'{valid_path}/instance_{j+1}.lp' for j in range(config["num_valid_instances"])]
-    train_instances = [f'{train_path}/instance_{j+1}.lp' for j in range(len(glob.glob(f'{train_path}/instance_*.lp')))]
+    #train_instances = [f'{train_path}/instance_{j+1}.lp' for j in range(len(glob.glob(f'{train_path}/instance_*.lp')))]
+    train_instances = [f'{train_path}/instance_{j+1}.lp' for j in range(config["num_train_instances"])]
 
     # collect the pre-computed optimal solutions for the training instances
     with open(f"{train_path}/instance_solutions.json", "r") as f:
@@ -259,55 +260,23 @@ if __name__ == '__main__':
             logger.info('  validation jobs finished')
 
         for heur in [True, False]:
+            heur_str = '_h' if heur else ''
+            for key in v_stats[0]['info']:
+                data = [s['info'][key] for s in v_stats if s['heuristics'] == heur]
+                if(len(data) == 0):
+                    continue
+                wandb_data.update({f'valid{heur_str}_{key}' : np.mean(data),
+                                    f'valid{heur_str}_{key}_min' : np.min(data),
+                                    f'valid{heur_str}_{key}_max' : np.max(data),
+                                    f'valid{heur_str}_{key}_median' : np.median(data),
+                                    f'valid{heur_str}_{key}_ninf' :  np.isinf(data).sum()})
+                
             v_nnodess = [s['info']['nnodes'] for s in v_stats if s['heuristics'] == heur]
-            v_lpiterss = [s['info']['lpiters'] for s in v_stats if s['heuristics'] == heur]
-            v_num_lps = [s['info']['num_lps'] for s in v_stats if s['heuristics'] == heur]
-            v_times = [s['info']['time'] for s in v_stats if s['heuristics'] == heur]
-            v_primal_obj = [s['info']['primal_obj'] for s in v_stats if s['heuristics'] == heur]
-            v_primal_integral_lpiters = [s['info']['primal_integral_lpiters'] for s in v_stats if s['heuristics'] == heur]
-            v_primal_integral_time = [s['info']['primal_integral_time'] for s in v_stats if s['heuristics'] == heur]
-            v_num_lps_for_first_feasible = [s['info']['num_lps_for_first_feasible'] for s in v_stats if s['heuristics'] == heur]
-            v_confined_primal_integral = [s['info']['confined_primal_integral'] for s in v_stats if s['heuristics'] == heur]
-
             if(len(v_nnodess) == 0):
                 continue
-
-            heur_str = '_h' if heur else ''
             wandb_data.update({
                 f'valid{heur_str}_nnodes_g': gmean(np.asarray(v_nnodess) + 1) - 1,
-                f'valid{heur_str}_nnodes': np.mean(v_nnodess),
-                f'valid{heur_str}_nnodes_max': np.amax(v_nnodess),
-                f'valid{heur_str}_nnodes_min': np.amin(v_nnodess),
-                f'valid{heur_str}_time': np.mean(v_times),
-                f'valid{heur_str}_lpiters': np.mean(v_lpiterss),
-                f'valid{heur_str}_num_lps': np.mean(v_num_lps),
-                f'valid{heur_str}_num_lps_min': np.amin(v_num_lps),
-                f'valid{heur_str}_num_lps_max': np.amax(v_num_lps),
-                f'valid{heur_str}_primal_obj' : np.mean(v_primal_obj),
-                f'valid{heur_str}_primal_obj_max' : np.amax(v_primal_obj),
-                f'valid{heur_str}_primal_obj_min' : np.amin(v_primal_obj),
-                f'valid{heur_str}_primal_obj_ninf' : np.isinf(v_primal_obj).sum(),
-                f'valid{heur_str}_primal_obj_median' : np.median(v_primal_obj),
-                f'valid{heur_str}_primal_integral_lpiters' : np.mean(v_primal_integral_lpiters),
-                f'valid{heur_str}_primal_integral_lpiters_min' : np.amin(v_primal_integral_lpiters),
-                f'valid{heur_str}_primal_integral_lpiters_max' : np.amax(v_primal_integral_lpiters),
-                f'valid{heur_str}_primal_integral_lpiters_median' : np.median(v_primal_integral_time),
-                f'valid{heur_str}_primal_integral_time' : np.mean(v_primal_integral_time),
-                f'valid{heur_str}_primal_integral_time_min' : np.amin(v_primal_integral_time),
-                f'valid{heur_str}_primal_integral_time_max' : np.amax(v_primal_integral_time),
-                f'valid{heur_str}_primal_integral_time_median' : np.median(v_primal_integral_time),
-                f'valid{heur_str}_confined_primal_integral' : np.mean(v_confined_primal_integral),
-                f'valid{heur_str}_confined_primal_integral_min' : np.amin(v_confined_primal_integral),
-                f'valid{heur_str}_confined_primal_integral_max' : np.amax(v_confined_primal_integral),
-                f'valid{heur_str}_confined_primal_integral_median' : np.median(v_confined_primal_integral),
-                f'valid{heur_str}_num_lps_for_first_feasible' : np.mean(v_num_lps_for_first_feasible),
-                f'valid{heur_str}_sub_optimality_0.01' : np.mean([s['info'][f'sub_optimality_0.01'] for s in v_stats if s['heuristics'] == heur]),
-                f'valid{heur_str}_sub_optimality_0.1' : np.mean([s['info'][f'sub_optimality_0.1'] for s in v_stats if s['heuristics'] == heur]),
-                f'valid{heur_str}_sub_optimality_0.2' : np.mean([s['info'][f'sub_optimality_0.2'] for s in v_stats if s['heuristics'] == heur]),
-                f'valid{heur_str}_sub_optimality_0.5' : np.mean([s['info'][f'sub_optimality_0.5'] for s in v_stats if s['heuristics'] == heur]),
-                f'valid{heur_str}_sub_optimality_1.0' : np.mean([s['info'][f'sub_optimality_1.0'] for s in v_stats if s['heuristics'] == heur])
             })
-
             if epoch == 0:
                 v_nnodes_0 = wandb_data[f'valid{heur_str}_nnodes'] if wandb_data[f'valid{heur_str}_nnodes'] != 0 else 1
                 v_nnodes_g_0 = wandb_data[f'valid{heur_str}_nnodes_g'] if wandb_data[f'valid{heur_str}_nnodes_g']!= 0 else 1
@@ -331,52 +300,21 @@ if __name__ == '__main__':
             t_losses = brain.update(t_samples)
             logger.info('  model parameters were updated')
 
-            t_nnodess = [s['info']['nnodes'] for s in t_stats]
-            t_lpiterss = [s['info']['lpiters'] for s in t_stats]
-            t_num_lps = [s['info']['num_lps'] for s in t_stats]
-            t_times = [s['info']['time'] for s in t_stats]
-            t_primal_obj = [s['info']['primal_obj'] for s in t_stats]
-            t_primal_integral_lpiters = [s['info']['primal_integral_lpiters'] for s in t_stats]
-            t_primal_integral_time = [s['info']['primal_integral_time'] for s in t_stats]
-            t_confined_primal_integral = [s['info']['confined_primal_integral'] for s in t_stats]
-            t_num_lps_for_first_feasible = [s['info']['num_lps_for_first_feasible'] for s in t_stats]
 
+            t_nnodess = [s['info']['nnodes'] for s in t_stats]
             wandb_data.update({
-                'train_nnodes_g': gmean(t_nnodess),
-                'train_nnodes': np.mean(t_nnodess),
-                'train_time': np.mean(t_times),
-                'train_lpiters': np.mean(t_lpiterss),
-                'train_num_lps': np.mean(t_num_lps),
-                'train_num_lps_min': np.amin(t_num_lps),
-                'train_num_lps_max': np.amax(t_num_lps),
-                'train_nsamples': len(t_samples),
-                'train_loss': t_losses.get('loss', None),
-                'train_reinforce_loss': t_losses.get('reinforce_loss', None),
-                'train_entropy': t_losses.get('entropy', None),
-                'train_primal_obj' : np.mean(t_primal_obj),
-                'train_primal_obj_max' : np.amax(t_primal_obj),
-                'train_primal_obj_min' : np.amin(t_primal_obj),
-                'train_primal_integral_lpiters' : np.mean(t_primal_integral_lpiters),
-                'train_primal_integral_lpiters_ninf' : np.isinf(t_primal_integral_lpiters).sum(),
-                'train_primal_integral_lpiters_min' : np.amin(t_primal_integral_lpiters),
-                'train_primal_integral_lpiters_max' : np.amax(t_primal_integral_lpiters),
-                'train_primal_integral_lpiters_median' : np.median(t_primal_integral_lpiters),
-                'train_primal_integral_time' : np.mean(t_primal_integral_time),
-                'train_primal_integral_time_ninf' : np.isinf(t_primal_integral_time).sum(),
-                'train_primal_integral_time_min' : np.amin(t_primal_integral_time),
-                'train_primal_integral_time_max' : np.amax(t_primal_integral_time),
-                'train_primal_integral_time_median' : np.median(t_primal_integral_time),
-                f'train_confined_primal_integral' : np.mean(t_confined_primal_integral),
-                f'train_confined_primal_integral_min' : np.amin(t_confined_primal_integral),
-                f'train_confined_primal_integral_max' : np.amax(t_confined_primal_integral),
-                f'train_confined_primal_integral_median' : np.median(t_confined_primal_integral),
-                'train_num_lps_for_first_feasible' : np.mean(t_num_lps_for_first_feasible),
-                f'train{heur_str}_sub_optimality_0.01' : np.mean([s['info'][f'sub_optimality_0.01'] for s in t_stats]),
-                f'train{heur_str}_sub_optimality_0.1' : np.mean([s['info'][f'sub_optimality_0.1'] for s in t_stats]),
-                f'train{heur_str}_sub_optimality_0.2' : np.mean([s['info'][f'sub_optimality_0.2'] for s in t_stats]),
-                f'train{heur_str}_sub_optimality_0.5' : np.mean([s['info'][f'sub_optimality_0.5'] for s in t_stats]),
-                f'train{heur_str}_sub_optimality_1.0' : np.mean([s['info'][f'sub_optimality_1.0'] for s in t_stats])          
+                'train_nnodes_g': gmean(t_nnodess),          
             })
+            for key in t_stats[0]['info']:
+                data = [s['info'][key] for s in t_stats if s['heuristics'] == heur]
+                if(len(data) == 0):
+                    continue
+                wandb_data.update({f'train_{key}' : np.mean(data),
+                                    f'train_{key}_min' : np.min(data),
+                                    f'train_{key}_max' : np.max(data),
+                                    f'train_{key}_median' : np.median(data),
+                                    f'train_{key}_ninf' :  np.isinf(data).sum()})
+                
 
         # Send the stats to wandb
         if args.wandb:
